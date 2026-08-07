@@ -3369,6 +3369,14 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 5587379211121880175, guid: 90cc62a4249521d4d977bc7de8648ba5, type: 3}
+      propertyPath: m_idleTorqueStrength
+      value: 5
+      objectReference: {fileID: 0}
+    - target: {fileID: 5587379211121880175, guid: 90cc62a4249521d4d977bc7de8648ba5, type: 3}
+      propertyPath: m_launchTorqueStrength
+      value: 30
+      objectReference: {fileID: 0}
     - target: {fileID: 6225998842628012709, guid: 90cc62a4249521d4d977bc7de8648ba5, type: 3}
       propertyPath: m_LocalPosition.x
       value: -0.5
