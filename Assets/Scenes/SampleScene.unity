@@ -1630,21 +1630,6 @@ GameObject:
   m_CorrespondingSourceObject: {fileID: 8964032189343602776, guid: 90cc62a4249521d4d977bc7de8648ba5, type: 3}
   m_PrefabInstance: {fileID: 1871205660081887021}
   m_PrefabAsset: {fileID: 0}
---- !u!114 &704061688
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 704061686}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: d60c4ee949d0b984393629d9a68a2b99, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: '::'
-  m_idleTorqueStrength: 10
-  m_launchTorqueStrength: 20
-  diePrefab: {fileID: 0}
 --- !u!1 &773779681
 GameObject:
   m_ObjectHideFlags: 0
@@ -1889,6 +1874,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1146319108}
   - component: {fileID: 1146319107}
+  - component: {fileID: 1146319109}
   m_Layer: 0
   m_Name: Managers
   m_TagString: Untagged
@@ -1928,6 +1914,27 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1146319109
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1146319106}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d0537b9f38c18134a83e1a6e1825b7f5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: '::'
+  m_idleTorqueStrength: 10
+  m_launchTorqueStrength: 20
+  m_diceCount: 6
+  m_spawnPadding: 30
+  m_downwardForce: 0.5
+  diePrefab: {fileID: 5872449029666245649, guid: 01f8d5bbcb32a204b93db6e154f6a8ae, type: 3}
+  diceSpawnPoint: {fileID: 704061686}
+  m_maxForce: 300
+  m_minForce: 100
 --- !u!1 &1155216198
 GameObject:
   m_ObjectHideFlags: 0
@@ -3115,8 +3122,9 @@ GameObject:
   - component: {fileID: 2100899532}
   - component: {fileID: 2100899534}
   - component: {fileID: 2100899533}
+  - component: {fileID: 2100899535}
   m_Layer: 5
-  m_Name: RawImage
+  m_Name: DiceRollCamera
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -3176,6 +3184,19 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2100899531}
   m_CullTransparentMesh: 1
+--- !u!114 &2100899535
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2100899531}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cf1ae0c1be512e94990338bd99c34632, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: '::'
+  m_initialMousePosition: {x: 0, y: 0}
 --- !u!1 &2119172004
 GameObject:
   m_ObjectHideFlags: 0
@@ -3325,13 +3346,9 @@ PrefabInstance:
       propertyPath: m_Name
       value: DiceRollingArea
       objectReference: {fileID: 0}
-    - target: {fileID: 2625009589620592577, guid: 90cc62a4249521d4d977bc7de8648ba5, type: 3}
-      propertyPath: 'm_Materials.Array.data[0]'
-      value: 
-      objectReference: {fileID: 2100000, guid: ccf2efcee2a7a9c4aa4daa433d46bf7f, type: 2}
     - target: {fileID: 5517736938896379586, guid: 90cc62a4249521d4d977bc7de8648ba5, type: 3}
       propertyPath: m_LocalPosition.x
-      value: -642.8
+      value: -650.4
       objectReference: {fileID: 0}
     - target: {fileID: 5517736938896379586, guid: 90cc62a4249521d4d977bc7de8648ba5, type: 3}
       propertyPath: m_LocalPosition.y
@@ -3369,46 +3386,10 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
-    - target: {fileID: 5587379211121880175, guid: 90cc62a4249521d4d977bc7de8648ba5, type: 3}
-      propertyPath: m_idleTorqueStrength
-      value: 5
-      objectReference: {fileID: 0}
-    - target: {fileID: 5587379211121880175, guid: 90cc62a4249521d4d977bc7de8648ba5, type: 3}
-      propertyPath: m_launchTorqueStrength
-      value: 30
-      objectReference: {fileID: 0}
-    - target: {fileID: 6225998842628012709, guid: 90cc62a4249521d4d977bc7de8648ba5, type: 3}
-      propertyPath: m_LocalPosition.x
-      value: -0.5
-      objectReference: {fileID: 0}
-    - target: {fileID: 7494552734386893705, guid: 90cc62a4249521d4d977bc7de8648ba5, type: 3}
-      propertyPath: m_Antialiasing
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 7494552734386893705, guid: 90cc62a4249521d4d977bc7de8648ba5, type: 3}
-      propertyPath: m_RenderShadows
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 7494552734386893705, guid: 90cc62a4249521d4d977bc7de8648ba5, type: 3}
-      propertyPath: m_RenderPostProcessing
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 7494552734386893705, guid: 90cc62a4249521d4d977bc7de8648ba5, type: 3}
-      propertyPath: m_RequiresDepthTextureOption
-      value: 2
-      objectReference: {fileID: 0}
-    - target: {fileID: 7494552734386893705, guid: 90cc62a4249521d4d977bc7de8648ba5, type: 3}
-      propertyPath: m_RequiresOpaqueTextureOption
-      value: 2
-      objectReference: {fileID: 0}
-    m_RemovedComponents:
-    - {fileID: 6000070839742054588, guid: 90cc62a4249521d4d977bc7de8648ba5, type: 3}
+    m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents:
-    - targetCorrespondingSourceObject: {fileID: 8964032189343602776, guid: 90cc62a4249521d4d977bc7de8648ba5, type: 3}
-      insertIndex: -1
-      addedObject: {fileID: 704061688}
+    m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 90cc62a4249521d4d977bc7de8648ba5, type: 3}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
