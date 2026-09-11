@@ -5,10 +5,6 @@ using UnityEngine;
 
 namespace GameUtility
 {
-    struct EventNames
-    {
-
-    }
     public abstract class EventHandlerBase
     {
         abstract public void Invoke();

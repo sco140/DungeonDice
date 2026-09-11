@@ -98,6 +98,7 @@ playground.xcworkspace
 *.csproj
 *.unityproj
 *.sln
+*.slnx
 *.suo
 
 ### Windows
