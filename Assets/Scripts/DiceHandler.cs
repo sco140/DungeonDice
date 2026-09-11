@@ -32,7 +32,6 @@ public class DiceHandler : MonoBehaviour
             value = 6,
             localNormal = Vector3.back }
     };
-    const float m_settleThreshold = 0.05f;
     public float m_linearDamping = 0.1f;
     public float m_angularDamping = 0.05f;
     private Rigidbody m_cmpRigidBody;
@@ -56,7 +55,13 @@ public class DiceHandler : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-
+        if (m_cmpRigidBody.useGravity && !m_cmpRigidBody.IsSleeping())
+        {
+            Debug.Log($"m_cmpRigidBody information \n" +
+                $"angularDamping = {m_cmpRigidBody.angularDamping}\n" +
+                $"angularVelocity = {m_cmpRigidBody.angularVelocity}\n" +
+                $"mass = {m_cmpRigidBody.mass}\n");
+        }
     }
 
     public void LaunchDice(Vector3 launchForce, Vector3 torqueForce)
@@ -80,12 +85,6 @@ public class DiceHandler : MonoBehaviour
 
         // Start a coroutine to wait for the dice to settle and then read the face value.
         StartCoroutine(WaitForDiceToSettle());
-    }
-
-    bool IsSettled(Rigidbody rb)
-    {
-        return rb.linearVelocity.sqrMagnitude < m_settleThreshold &&
-               rb.angularVelocity.sqrMagnitude < m_settleThreshold;
     }
 
     int GetFaceUp()
