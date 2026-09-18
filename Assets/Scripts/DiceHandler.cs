@@ -1,3 +1,4 @@
+using GameUtility;
 using System.Collections;
 using UnityEngine;
 
@@ -55,13 +56,6 @@ public class DiceHandler : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-        if (m_cmpRigidBody.useGravity && !m_cmpRigidBody.IsSleeping())
-        {
-            Debug.Log($"m_cmpRigidBody information \n" +
-                $"angularDamping = {m_cmpRigidBody.angularDamping}\n" +
-                $"angularVelocity = {m_cmpRigidBody.angularVelocity}\n" +
-                $"mass = {m_cmpRigidBody.mass}\n");
-        }
     }
 
     public void LaunchDice(Vector3 launchForce, Vector3 torqueForce)
@@ -116,6 +110,6 @@ public class DiceHandler : MonoBehaviour
 
         // Now read the face
         int result = GetFaceUp();
-        Debug.Log($"{name}'s Die result: " + result);
+        DiceManager.ProcessDiceValue(name, result);
     }
 }

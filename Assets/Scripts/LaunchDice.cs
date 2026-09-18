@@ -8,7 +8,7 @@ public class LaunchDice :
 {
     private void Start()
     {
-        DiceManager.Instance.SpawnDice();
+        DiceManager.SpawnDice();
     }
     public Vector2 m_initialMousePosition;
     public void OnPointerDown(PointerEventData eventData)
@@ -19,6 +19,6 @@ public class LaunchDice :
     public void OnPointerUp(PointerEventData eventData)
     {
         var toEndPoint = eventData.position - m_initialMousePosition;
-        DiceManager.Instance.LaunchDice(new Vector3(toEndPoint.x, 0f, toEndPoint.y));
+        DiceManager.LaunchDice(new Vector3(toEndPoint.x, 0f, toEndPoint.y));
     }
 }

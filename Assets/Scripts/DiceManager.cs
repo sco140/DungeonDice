@@ -1,6 +1,6 @@
+using GameUtility;
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.Rendering;
 
 public class DiceManager : MonoBehaviour
 {
@@ -12,7 +12,7 @@ public class DiceManager : MonoBehaviour
     public int m_diceCount = 6;
     public float m_spawnPadding = 100;
     public float m_downwardForce = 0.5f;
-
+    public int m_processDiceCount = 0;
     // The diePrefab should be assigned in the Unity Inspector.
     // This is the prefab that will be instantiated when spawning dice.
     [SerializeField]
@@ -69,38 +69,44 @@ public class DiceManager : MonoBehaviour
         }
     }
 
-    public void SpawnDice()
+    public static void SpawnDice()
     {
-        if (diePrefab == null)
+        if (Instance.diePrefab == null)
         {
             Debug.LogError("Die prefab is not assigned in the inspector.");
-            enabled = false;
+            Instance.enabled = false;
             return;
         }
 
         // Spawn the dice in a line with some padding between them.
-        var currentPosition = diceSpawnPoint.transform.position;
+        var currentPosition = Instance.diceSpawnPoint.transform.position;
         // Adjust the starting position to center the dice based on the count and padding.
-        currentPosition.x -= (m_diceCount - 1) / 2.0f * m_spawnPadding;
+        currentPosition.x -= (Instance.m_diceCount - 1) / 2.0f * Instance.m_spawnPadding;
 
-        for (int i = 0; i < m_diceCount; i++)
+        for (int i = 0; i < Instance.m_diceCount; i++)
         {
-            m_spawnedDiceList.Add(Instantiate(
-                diePrefab,
+            var newDice = Instantiate(
+                Instance.diePrefab,
                 currentPosition,
                 Quaternion.identity,
-                diceSpawnPoint.transform));
-            currentPosition.x += m_spawnPadding;
+                Instance.diceSpawnPoint.transform);
+            
+            // Updating padding for next dice.
+            currentPosition.x += Instance.m_spawnPadding;
+
+            // Update Dice name
+            newDice.name = $"Dice_{i}";
+            Instance.m_spawnedDiceList.Add(newDice);
         }
 
-        foreach (var die in m_spawnedDiceList)
+        foreach (var die in Instance.m_spawnedDiceList)
         {
             var dieRigidBody = die.GetComponent<Rigidbody>();
             if (dieRigidBody)
             {
                 // Disable gravity and apply a random torque to the die to make it spin in the air.
                 dieRigidBody.useGravity = false;
-                dieRigidBody.angularVelocity = Random.insideUnitSphere * m_idleTorqueStrength;
+                dieRigidBody.angularVelocity = Random.insideUnitSphere * Instance.m_idleTorqueStrength;
             }
             else
             {
@@ -113,22 +119,22 @@ public class DiceManager : MonoBehaviour
     /// Launch the dice in the specified direction.
     /// </summary>
     /// <param name="toVector">Represents the direction and magnitude of the launch</param>
-    public void LaunchDice(Vector3 toVector)
+    public static void LaunchDice(Vector3 toVector)
     {
-        if (m_spawnedDiceList.Count == 0)
+        if (Instance.m_spawnedDiceList.Count == 0)
         {
             Debug.LogWarning("No dice have been spawned to launch.");
             return;
         }
 
-        if (!m_isIdle)
+        if (!Instance.m_isIdle)
         {
             Debug.LogWarning("Dice have been launched already.");
             return;
         }
 
-        var direction = toVector.normalized + (Vector3.down * m_downwardForce);
-        var force = Mathf.Clamp(toVector.magnitude, m_minForce, m_maxForce);
+        var direction = toVector.normalized + (Vector3.down * Instance.m_downwardForce);
+        var force = Mathf.Clamp(toVector.magnitude, Instance.m_minForce, Instance.m_maxForce);
         Debug.Log($"Launch force applied to the dice [ {force} ]");
 
         // Change the gravity to be stronger than the default to make the dice fall faster.
@@ -137,8 +143,8 @@ public class DiceManager : MonoBehaviour
         Physics.gravity = new Vector3(0, -12f, 0);
 
         // Stop applying continuous torque.
-        m_isIdle = false;
-        foreach (var die in m_spawnedDiceList)
+        Instance.m_isIdle = false;
+        foreach (var die in Instance.m_spawnedDiceList)
         {
             if (!die.TryGetComponent(out DiceHandler handler))
             {
@@ -146,8 +152,24 @@ public class DiceManager : MonoBehaviour
                 continue;
             }
 
-            // Launch the die with the calculated direction and force, and apply a random torque for realism.
-            handler.LaunchDice(direction * force, Random.insideUnitSphere * m_launchTorqueStrength);
+            // Launch the die with the calculated direction and force,
+            // and apply a random torque for realism.
+            handler.LaunchDice(
+                direction * force, 
+                Random.insideUnitSphere * Instance.m_launchTorqueStrength);
+        }
+    }
+
+    public static void ProcessDiceValue(string dieName, int result)
+    {
+        Debug.Log($"Dice result for {dieName}: {result}");
+
+        Instance.m_processDiceCount++;
+
+        if (Instance.m_processDiceCount == Instance.m_diceCount)
+        {
+            Instance.m_processDiceCount = 0;
+            EventManager.TriggerEvent("UpdateResources", result);
         }
     }
 }

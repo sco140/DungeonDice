@@ -2,7 +2,9 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 using GameUtility;
-
+[CreateAssetMenu(
+    fileName = "BaseSkill", 
+    menuName = "Scriptable Objects/BaseSkill")]
 public abstract class BaseSkill : ScriptableObject
 {
     public string m_name;
