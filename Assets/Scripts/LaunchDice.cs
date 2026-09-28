@@ -1,3 +1,4 @@
+using GameUtility;
 using UnityEngine;
 using UnityEngine.EventSystems;
 
@@ -6,11 +7,7 @@ public class LaunchDice :
     IPointerDownHandler,
     IPointerUpHandler
 {
-    private void Start()
-    {
-        DiceManager.SpawnDice();
-    }
-    public Vector2 m_initialMousePosition;
+    Vector2 m_initialMousePosition;
     public void OnPointerDown(PointerEventData eventData)
     {
         m_initialMousePosition = eventData.position;

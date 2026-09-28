@@ -43,7 +43,7 @@ public class PlayerTeamManager : MonoBehaviour
     private void Start()
     {
         // Register event handlers for resource updates.
-        EventManager.Register("UpdateResources", new EventHandler<int, int, int>(UpdateResources));
+        EventManager.Register("UpdateResources", new EventHandler<Event_ResourceUpdate>(UpdateResources));
     }
     /// <summary>
     /// TODO: Consider creating a class to control the skill menu and its interactions with the player unit controllers,
@@ -66,16 +66,8 @@ public class PlayerTeamManager : MonoBehaviour
     {
         return Instance.m_PlayerUnitController;
     }
-    public static void UpdateResources(int red, int blue, int yellow)
+    public static void UpdateResources(Event_ResourceUpdate eventData)
     {
-        // Create an event data object to hold the skill resource values.
-        Event_ResourceUpdate eventData = new()
-        {
-            red = red,
-            blue = blue,
-            yellow = yellow
-        };
-
         // Send the event to all listeners to update affect this value.
         EventManager.TriggerEvent("BeforeResourceUpdate", eventData);
 
@@ -85,9 +77,9 @@ public class PlayerTeamManager : MonoBehaviour
         Instance.m_blue = eventData.blue;
         Instance.m_yellow = eventData.yellow;
 
+        EventManager.TriggerEvent("ResourceUIUpdate", eventData);
+
         // Send the event to all listeners to update affect this value.
         EventManager.TriggerEvent("AfterResourceUpdate", eventData);
-
-
     }
 }

@@ -21,13 +21,12 @@ public class ResourceManager : MonoBehaviour
         }
 
         Instance = this;
-        DontDestroyOnLoad(gameObject);
     }
 
     private void Start()
     {
         // Register event handlers for resource updates.
-        EventManager.Register("ResourceUIUpdate", new EventHandler<int, int, int>(UpdateUI));
+        EventManager.Register("ResourceUIUpdate", new EventHandler<Event_ResourceUpdate>(UpdateUI));
 
         if (m_redText == null || m_blueText == null || m_yellowText == null)
         {
@@ -36,10 +35,10 @@ public class ResourceManager : MonoBehaviour
         }
     }
 
-    public void UpdateUI(int red, int blue, int yellow)
+    public void UpdateUI(Event_ResourceUpdate eventData)
     {
-        Instance.m_redText.text = "Red: " + red.ToString();
-        Instance.m_blueText.text = "Blue: " + blue.ToString();
-        Instance.m_yellowText.text = "Yellow: " + yellow.ToString();
+        Instance.m_redText.text = ": " + eventData.red.ToString();
+        Instance.m_blueText.text = ": " + eventData.blue.ToString();
+        Instance.m_yellowText.text = ": " + eventData.yellow.ToString();
     }
 }

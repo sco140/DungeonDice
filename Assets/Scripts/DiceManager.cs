@@ -1,6 +1,7 @@
 using GameUtility;
 using System.Collections.Generic;
 using UnityEngine;
+using static BaseDice;
 
 public class DiceManager : MonoBehaviour
 {
@@ -9,10 +10,12 @@ public class DiceManager : MonoBehaviour
 
     public int m_idleTorqueStrength = 10;
     public int m_launchTorqueStrength = 20;
-    public int m_diceCount = 6;
     public float m_spawnPadding = 100;
     public float m_downwardForce = 0.5f;
-    public int m_processDiceCount = 0;
+    /// <summary>
+    /// A list to keep track of the retrieved resources from the dice rolls.
+    /// </summary>
+    private List<ResourceFace> m_lstRetrievedResource = new List<ResourceFace>();
     // The diePrefab should be assigned in the Unity Inspector.
     // This is the prefab that will be instantiated when spawning dice.
     [SerializeField]
@@ -44,6 +47,8 @@ public class DiceManager : MonoBehaviour
         Physics.defaultSolverVelocityIterations = 12;
 
         DontDestroyOnLoad(gameObject);
+        EventManager.Register("SpawnDice", new EventHandler<int>(SpawnDice));
+        EventManager.Register("LaunchDice", new EventHandler<Vector3>(LaunchDice));
     }
 
     // Update is called once per frame
@@ -69,7 +74,7 @@ public class DiceManager : MonoBehaviour
         }
     }
 
-    public static void SpawnDice()
+    public static void SpawnDice(int diceCount)
     {
         if (Instance.diePrefab == null)
         {
@@ -78,25 +83,52 @@ public class DiceManager : MonoBehaviour
             return;
         }
 
+        if (Instance.diceSpawnPoint == null)
+        {
+            Debug.LogError("Dice spawn point is not assigned in the inspector.");
+            Instance.enabled = false;
+            return;
+        }
+
+        if (Instance.m_spawnedDiceList.Count < diceCount)
+        {
+            for (int i = 0; i < diceCount; i++)
+            {
+                // Create a new die
+                var newDice = Instantiate(
+                   Instance.diePrefab,
+                   Vector3.zero,
+                   Quaternion.identity,
+                   Instance.diceSpawnPoint.transform);
+                
+                // Update dice name
+                newDice.name = $"Dice_{i}";
+
+                Instance.m_spawnedDiceList.Add(newDice);
+            }
+        }
+        else if (Instance.m_spawnedDiceList.Count > diceCount)
+        {
+            // Remove extra dice if the count is less than the current list.
+            for (int i = diceCount, count = Instance.m_spawnedDiceList.Count; i < count; i++)
+            {
+                Instance.m_spawnedDiceList[i].SetActive(false);
+            }
+        }
+
+        ref var diceList = ref Instance.m_spawnedDiceList;
         // Spawn the dice in a line with some padding between them.
         var currentPosition = Instance.diceSpawnPoint.transform.position;
         // Adjust the starting position to center the dice based on the count and padding.
-        currentPosition.x -= (Instance.m_diceCount - 1) / 2.0f * Instance.m_spawnPadding;
+        currentPosition.x -= (diceCount - 1) / 2.0f * Instance.m_spawnPadding;
 
-        for (int i = 0; i < Instance.m_diceCount; i++)
+        // Loop through the dice and set their positions
+        // based on the calculated starting position and padding.
+        for (int i = 0; i < diceCount; i++)
         {
-            var newDice = Instantiate(
-                Instance.diePrefab,
-                currentPosition,
-                Quaternion.identity,
-                Instance.diceSpawnPoint.transform);
-            
+            diceList[i].transform.position = currentPosition;
             // Updating padding for next dice.
             currentPosition.x += Instance.m_spawnPadding;
-
-            // Update Dice name
-            newDice.name = $"Dice_{i}";
-            Instance.m_spawnedDiceList.Add(newDice);
         }
 
         foreach (var die in Instance.m_spawnedDiceList)
@@ -160,16 +192,43 @@ public class DiceManager : MonoBehaviour
         }
     }
 
-    public static void ProcessDiceValue(string dieName, int result)
+    public static void ProcessDiceValue(string dieName, ResourceFace result)
     {
         Debug.Log($"Dice result for {dieName}: {result}");
 
-        Instance.m_processDiceCount++;
-
-        if (Instance.m_processDiceCount == Instance.m_diceCount)
+        Instance.m_lstRetrievedResource.Add(result);
+        if (Instance.m_lstRetrievedResource.Count == Instance.m_spawnedDiceList.Count)
         {
-            Instance.m_processDiceCount = 0;
-            EventManager.TriggerEvent("UpdateResources", result);
+            int red = 0;
+            int blue = 0;
+            int yellow = 0;
+
+            // Process the results and update the resources accordingly.
+            foreach (var face in Instance.m_lstRetrievedResource)
+            {
+                switch (face.m_type)
+                {
+                    case DiceResultType.Red:
+                        red += face.amount;
+                        break;
+                    case DiceResultType.Blue:
+                        blue += face.amount;
+                        break;
+                    case DiceResultType.Yellow:
+                        yellow += face.amount;
+                        break;
+                }
+            }
+
+            EventManager.TriggerEvent("UpdateResources", new Event_ResourceUpdate
+            {
+                red = red,
+                blue = blue,
+                yellow = yellow
+            });
+
+            // Removing all result values after processing to prepare for the next dice roll.
+            Instance.m_lstRetrievedResource.Clear();
         }
     }
 }

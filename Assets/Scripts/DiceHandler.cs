@@ -1,4 +1,3 @@
-using GameUtility;
 using System.Collections;
 using UnityEngine;
 
@@ -12,8 +11,7 @@ public struct DieFace
 [RequireComponent(typeof(Rigidbody))]
 public class DiceHandler : MonoBehaviour
 {
-    public DieFace[] faces = new DieFace[]
-    {
+    private DieFace[] faces = new DieFace[] {
         new() {
             value = 1,
             localNormal = Vector3.forward },
@@ -36,6 +34,10 @@ public class DiceHandler : MonoBehaviour
     public float m_linearDamping = 0.1f;
     public float m_angularDamping = 0.05f;
     private Rigidbody m_cmpRigidBody;
+    
+    [SerializeField]
+    private BaseDice m_diceFaceInfo;
+
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
     {
@@ -110,6 +112,7 @@ public class DiceHandler : MonoBehaviour
 
         // Now read the face
         int result = GetFaceUp();
-        DiceManager.ProcessDiceValue(name, result);
+        var faceInfo = m_diceFaceInfo.m_lstDieFaces[result-1];
+        DiceManager.ProcessDiceValue(name, faceInfo);
     }
 }

@@ -1,5 +1,3 @@
-using NUnit.Framework;
-using System.Collections.Generic;
 using UnityEngine;
 
 public enum DiceResultType
@@ -30,8 +28,7 @@ public class BaseDice : ScriptableObject
 
     }
 
-    public ResourceFace[] m_lstDieFaces = new ResourceFace[6]
-    {
+    public ResourceFace[] m_lstDieFaces = new ResourceFace[6] {
         new() { 
             m_diceFaceIndex = 1, 
             m_type = DiceResultType.Red, 
