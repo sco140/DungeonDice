@@ -9,7 +9,7 @@ public class PlayerUnitController : MonoBehaviour , IPointerClickHandler
 
     public void OnPointerClick(PointerEventData eventData)
     {
-        var skillMenu = PlayerTeamManager.Instance.GetSkillMenu();
+        var skillMenu = PlayerTeamManager.GetSkillMenu();
 
         if (skillMenu == null)
         {

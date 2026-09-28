@@ -153,18 +153,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8062712dfd0d1be4093f0d3110898a39, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DiceHandler
-  faces:
-  - value: 1
-    localNormal: {x: 0, y: 0, z: 1}
-  - value: 2
-    localNormal: {x: 0, y: 1, z: 0}
-  - value: 3
-    localNormal: {x: -1, y: 0, z: 0}
-  - value: 4
-    localNormal: {x: 1, y: 0, z: 0}
-  - value: 5
-    localNormal: {x: 0, y: -1, z: 0}
-  - value: 6
-    localNormal: {x: 0, y: 0, z: -1}
   m_linearDamping: 0
   m_angularDamping: 0.05
+  m_diceFaceInfo: {fileID: 11400000, guid: 3bd87e11bad2e5446a2c7579d1ca4278, type: 2}

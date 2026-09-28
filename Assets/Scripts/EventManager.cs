@@ -7,7 +7,6 @@ namespace GameUtility
 {
     public abstract class EventHandlerBase
     {
-        abstract public void Invoke();
     }
     public class EventHandler : EventHandlerBase
     {
@@ -16,7 +15,7 @@ namespace GameUtility
         {
             m_delegate = newFunc;
         }
-        override public void Invoke()
+        public void Invoke()
         {
             m_delegate.Invoke();
         }
@@ -24,50 +23,49 @@ namespace GameUtility
     public class EventHandler<I> : EventHandlerBase
     {
         private readonly Action<I> m_delegate;
-        private I m_paramI;
-        public EventHandler(Action<I> newFunc, I paramI)
+        public EventHandler(Action<I> newFunc)
         {
             m_delegate = newFunc;
-            m_paramI = paramI;
         }
-        override public void Invoke()
+        public void Invoke(I paramI)
         {
-            m_delegate.Invoke(m_paramI);
+            m_delegate.Invoke(paramI);
+        }
+        public void ReferenceInvoke(ref I paramI)
+        {
+            m_delegate.Invoke(paramI);
         }
     }
     public class EventHandler<I, J> : EventHandlerBase
     {
         private readonly Action<I, J> m_delegate;
-        private readonly I m_paramI;
-        private readonly J m_paramJ;
-        public EventHandler(Action<I, J> newFunc, I paramI, J paramJ)
+        public EventHandler(Action<I, J> newFunc)
         {
             m_delegate = newFunc;
-            m_paramI = paramI;
-            m_paramJ = paramJ;
         }
-        override public void Invoke()
+        public void Invoke(I paramI, J paramJ)
         {
-            m_delegate.Invoke(m_paramI, m_paramJ);
+            m_delegate.Invoke(paramI, paramJ);
+        }
+        public void ReferenceInvoke(ref I paramI, ref J paramJ)
+        {
+            m_delegate.Invoke(paramI, paramJ);
         }
     }
     public class EventHandler<I, J, K> : EventHandlerBase
     {
         private readonly Action<I, J, K> m_delegate;
-        private readonly I m_paramI;
-        private readonly J m_paramJ;
-        private readonly K m_paramK;
-        public EventHandler(Action<I, J, K> newFunc, I paramI, J paramJ, K paramK)
+        public EventHandler(Action<I, J, K> newFunc)
         {
             m_delegate = newFunc;
-
-            m_paramI = paramI;
-            m_paramJ = paramJ;
-            m_paramK = paramK;
         }
-        override public void Invoke()
+        public void Invoke(I paramI, J paramJ, K paramK)
         {
-            m_delegate.Invoke(m_paramI, m_paramJ, m_paramK);
+            m_delegate.Invoke(paramI, paramJ, paramK);
+        }
+        public void ReferenceInvoke(ref I paramI, ref J paramJ, ref K paramK)
+        {
+            m_delegate.Invoke(paramI, paramJ, paramK);
         }
     }
     public class EventManager : MonoBehaviour
@@ -86,28 +84,66 @@ namespace GameUtility
                 DontDestroyOnLoad(gameObject);
             }
         }
-        public void Register(string eventName, EventHandlerBase listener)
+        public static void Register(string eventName, EventHandlerBase listener)
         {
-            if (!m_dEventDictionary.ContainsKey(eventName))
+            if (!Instance.m_dEventDictionary.ContainsKey(eventName))
             {
-                m_dEventDictionary[eventName] = new List<EventHandlerBase>();
+                Instance.m_dEventDictionary[eventName] = new List<EventHandlerBase>();
             }
-            m_dEventDictionary[eventName].Add(listener);
+            Instance.m_dEventDictionary[eventName].Add(listener);
         }
-        public void Unregister(string eventName, EventHandlerBase listener)
+        public static void Register<I>(string eventName, EventHandler<I> listener)
         {
-            if (m_dEventDictionary.TryGetValue(eventName, out List<EventHandlerBase> listeners))
+            if (!Instance.m_dEventDictionary.ContainsKey(eventName))
+            {
+                Instance.m_dEventDictionary[eventName] = new List<EventHandlerBase>();
+            }
+            Instance.m_dEventDictionary[eventName].Add(listener);
+        }
+        public static void Register<I, J>(string eventName, EventHandler<I, J> listener)
+        {
+            if (!Instance.m_dEventDictionary.ContainsKey(eventName))
+            {
+                Instance.m_dEventDictionary[eventName] = new List<EventHandlerBase>();
+            }
+            Instance.m_dEventDictionary[eventName].Add(listener);
+        }
+        public static void Register<I, J, K>(string eventName, EventHandler<I, J, K> listener)
+        {
+            if (!Instance.m_dEventDictionary.ContainsKey(eventName))
+            {
+                Instance.m_dEventDictionary[eventName] = new List<EventHandlerBase>();
+            }
+            Instance.m_dEventDictionary[eventName].Add(listener);
+        }
+        public static void Unregister(string eventName, EventHandlerBase listener)
+        {
+            if (Instance.m_dEventDictionary.TryGetValue(
+                eventName,
+                out List<EventHandlerBase> listeners))
             {
                 listeners.Remove(listener);
                 if (listeners.Count == 0)
                 {
-                    m_dEventDictionary.Remove(eventName);
+                    Instance.m_dEventDictionary.Remove(eventName);
                 }
             }
         }
-        public void TriggerEvent(string eventName)
+        public static void TriggerEvent(string eventName)
         {
-            StartCoroutine(HandleEvent(eventName));
+            Instance.StartCoroutine(Instance.HandleEvent(eventName));
+        }
+        public static void TriggerEvent<I>(string eventName, I paramI)
+        {
+            Instance.StartCoroutine(Instance.HandleEvent(eventName, paramI));
+        }
+        public static void TriggerEvent<I, J>(string eventName, I paramI, J paramJ)
+        {
+            Instance.StartCoroutine(Instance.HandleEvent(eventName, paramI, paramJ));
+        }
+        public static void TriggerEvent<I, J, K>(string eventName, I paramI, J paramJ, K paramK)
+        {
+            Instance.StartCoroutine(Instance.HandleEvent(eventName, paramI, paramJ, paramK));
         }
         private IEnumerator HandleEvent(string eventName)
         {
@@ -115,10 +151,60 @@ namespace GameUtility
             {
                 foreach (EventHandlerBase listener in listeners)
                 {
-                    listener.Invoke();
+                    ((EventHandler)listener).Invoke();
                 }
+            }
+            else
+            {
+                Debug.LogWarning($"Event '{eventName}' was never registered.");
             }
             yield return null;
         }
+        private IEnumerator HandleEvent<I>(string eventName, I paramI)
+        {
+            if (m_dEventDictionary.TryGetValue(eventName, out List<EventHandlerBase> listeners))
+            {
+                foreach (EventHandlerBase listener in listeners)
+                {
+                    ((EventHandler<I>)listener).Invoke(paramI);
+                }
+            }
+            else
+            {
+                Debug.LogWarning($"Event '{eventName}' was never registered.");
+            }
+            yield return null;
+        }
+        private IEnumerator HandleEvent<I, J>(string eventName, I paramI, J paramJ)
+        {
+            if (m_dEventDictionary.TryGetValue(eventName, out List<EventHandlerBase> listeners))
+            {
+                foreach (EventHandlerBase listener in listeners)
+                {
+                    ((EventHandler<I, J>)listener).Invoke(paramI, paramJ);
+                }
+            }
+            else
+            {
+                Debug.LogWarning($"Event '{eventName}' was never registered.");
+            }
+            yield return null;
+        }
+        private IEnumerator HandleEvent<I, J, K>(string eventName, I paramI, J paramJ, K paramK)
+        {
+            if (m_dEventDictionary.TryGetValue(eventName, out List<EventHandlerBase> listeners))
+            {
+                foreach (EventHandlerBase listener in listeners)
+                {
+                    ((EventHandler<I, J, K>)listener).Invoke(paramI, paramJ, paramK);
+                }
+            }
+            else
+            {
+                Debug.LogWarning($"Event '{eventName}' was never registered.");
+            }
+            yield return null;
+        }
+
     }
 }

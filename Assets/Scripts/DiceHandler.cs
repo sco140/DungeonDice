@@ -11,8 +11,7 @@ public struct DieFace
 [RequireComponent(typeof(Rigidbody))]
 public class DiceHandler : MonoBehaviour
 {
-    public DieFace[] faces = new DieFace[]
-    {
+    private DieFace[] faces = new DieFace[] {
         new() {
             value = 1,
             localNormal = Vector3.forward },
@@ -35,6 +34,10 @@ public class DiceHandler : MonoBehaviour
     public float m_linearDamping = 0.1f;
     public float m_angularDamping = 0.05f;
     private Rigidbody m_cmpRigidBody;
+    
+    [SerializeField]
+    private BaseDice m_diceFaceInfo;
+
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
     {
@@ -55,13 +58,6 @@ public class DiceHandler : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-        if (m_cmpRigidBody.useGravity && !m_cmpRigidBody.IsSleeping())
-        {
-            Debug.Log($"m_cmpRigidBody information \n" +
-                $"angularDamping = {m_cmpRigidBody.angularDamping}\n" +
-                $"angularVelocity = {m_cmpRigidBody.angularVelocity}\n" +
-                $"mass = {m_cmpRigidBody.mass}\n");
-        }
     }
 
     public void LaunchDice(Vector3 launchForce, Vector3 torqueForce)
@@ -116,6 +112,7 @@ public class DiceHandler : MonoBehaviour
 
         // Now read the face
         int result = GetFaceUp();
-        Debug.Log($"{name}'s Die result: " + result);
+        var faceInfo = m_diceFaceInfo.m_lstDieFaces[result-1];
+        DiceManager.ProcessDiceValue(name, faceInfo);
     }
 }
