@@ -33,7 +33,11 @@ public class DiceManager : MonoBehaviour
     private List<GameObject> m_spawnedDiceList = new List<GameObject>();
     // A flag to indicate whether the dice are currently idle.
     private bool m_isIdle = true;
-
+    private void OnDestroy()
+    {
+        EventManager.Unregister<int>("SpawnDice", SpawnDice);
+        EventManager.Unregister<Vector3>("LaunchDice", LaunchDice);
+    }
     private void Awake()
     {
         if (Instance != null && Instance != this)
@@ -74,15 +78,19 @@ public class DiceManager : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Spawns the specified number of dice at the designated spawn point.
+    /// </summary>
+    /// <param name="diceCount">The number of dice to spawn.</param>
     public static void SpawnDice(int diceCount)
     {
+        // Validate the diePrefab and diceSpawnPoint before proceeding.
         if (Instance.diePrefab == null)
         {
             Debug.LogError("Die prefab is not assigned in the inspector.");
             Instance.enabled = false;
             return;
         }
-
         if (Instance.diceSpawnPoint == null)
         {
             Debug.LogError("Dice spawn point is not assigned in the inspector.");
@@ -90,9 +98,11 @@ public class DiceManager : MonoBehaviour
             return;
         }
 
-        if (Instance.m_spawnedDiceList.Count < diceCount)
+        var diceList = Instance.m_spawnedDiceList;
+        // if the current number of spawned dice is less than the requested count, spawn new dice.
+        if (diceList.Count < diceCount)
         {
-            for (int i = 0; i < diceCount; i++)
+            for (int i = diceList.Count; i < diceCount; i++)
             {
                 // Create a new die
                 var newDice = Instantiate(
@@ -100,25 +110,24 @@ public class DiceManager : MonoBehaviour
                    Vector3.zero,
                    Quaternion.identity,
                    Instance.diceSpawnPoint.transform);
-                
+
                 // Update dice name
                 newDice.name = $"Dice_{i}";
 
-                Instance.m_spawnedDiceList.Add(newDice);
+                diceList.Add(newDice);
             }
         }
-        else if (Instance.m_spawnedDiceList.Count > diceCount)
+        else if (diceList.Count > diceCount)
         {
-            // Remove extra dice if the count is less than the current list.
-            for (int i = diceCount, count = Instance.m_spawnedDiceList.Count; i < count; i++)
+            // disable extra dice if the count is less than the current list.
+            for (int i = diceCount, count = diceList.Count; i < count; i++)
             {
-                Instance.m_spawnedDiceList[i].SetActive(false);
+                diceList[i].SetActive(false);
             }
         }
 
-        ref var diceList = ref Instance.m_spawnedDiceList;
         // Spawn the dice in a line with some padding between them.
-        var currentPosition = Instance.diceSpawnPoint.transform.position;
+        var currentPosition = Vector3.zero;
         // Adjust the starting position to center the dice based on the count and padding.
         currentPosition.x -= (diceCount - 1) / 2.0f * Instance.m_spawnPadding;
 
@@ -131,7 +140,8 @@ public class DiceManager : MonoBehaviour
             currentPosition.x += Instance.m_spawnPadding;
         }
 
-        foreach (var die in Instance.m_spawnedDiceList)
+        // Reset the idle state
+        foreach (var die in diceList)
         {
             var dieRigidBody = die.GetComponent<Rigidbody>();
             if (dieRigidBody)
@@ -187,7 +197,7 @@ public class DiceManager : MonoBehaviour
             // Launch the die with the calculated direction and force,
             // and apply a random torque for realism.
             handler.LaunchDice(
-                direction * force, 
+                direction * force,
                 Random.insideUnitSphere * Instance.m_launchTorqueStrength);
         }
     }
@@ -197,38 +207,42 @@ public class DiceManager : MonoBehaviour
         Debug.Log($"Dice result for {dieName}: {result}");
 
         Instance.m_lstRetrievedResource.Add(result);
-        if (Instance.m_lstRetrievedResource.Count == Instance.m_spawnedDiceList.Count)
+        if (Instance.m_lstRetrievedResource.Count != Instance.m_spawnedDiceList.Count)
         {
-            int red = 0;
-            int blue = 0;
-            int yellow = 0;
-
-            // Process the results and update the resources accordingly.
-            foreach (var face in Instance.m_lstRetrievedResource)
-            {
-                switch (face.m_type)
-                {
-                    case DiceResultType.Red:
-                        red += face.amount;
-                        break;
-                    case DiceResultType.Blue:
-                        blue += face.amount;
-                        break;
-                    case DiceResultType.Yellow:
-                        yellow += face.amount;
-                        break;
-                }
-            }
-
-            EventManager.TriggerEvent("UpdateResources", new Event_ResourceUpdate
-            {
-                red = red,
-                blue = blue,
-                yellow = yellow
-            });
-
-            // Removing all result values after processing to prepare for the next dice roll.
-            Instance.m_lstRetrievedResource.Clear();
+            return;
         }
+
+        int red = 0;
+        int blue = 0;
+        int yellow = 0;
+
+        // Process the results and update the resources accordingly.
+        foreach (var face in Instance.m_lstRetrievedResource)
+        {
+            switch (face.m_type)
+            {
+                case DiceResultType.Red:
+                    red += face.amount;
+                    break;
+                case DiceResultType.Blue:
+                    blue += face.amount;
+                    break;
+                case DiceResultType.Yellow:
+                    yellow += face.amount;
+                    break;
+            }
+        }
+
+        EventManager.TriggerEvent("UpdateResources", new Event_ResourceUpdate
+        {
+            red = red,
+            blue = blue,
+            yellow = yellow
+        });
+
+        EventManager.TriggerEvent("DisableDiceLaunch");
+
+        // Removing all result values after processing to prepare for the next dice roll.
+        Instance.m_lstRetrievedResource.Clear();
     }
 }

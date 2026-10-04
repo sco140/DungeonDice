@@ -1,7 +1,9 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
+using UnityEngine.UIElements;
 
 namespace GameUtility
 {
@@ -11,6 +13,7 @@ namespace GameUtility
     public class EventHandler : EventHandlerBase
     {
         private readonly Action m_delegate;
+        public Action GetDelegate() => m_delegate;
         public EventHandler(Action newFunc)
         {
             m_delegate = newFunc;
@@ -23,6 +26,7 @@ namespace GameUtility
     public class EventHandler<I> : EventHandlerBase
     {
         private readonly Action<I> m_delegate;
+        public Action<I> GetDelegate() => m_delegate;
         public EventHandler(Action<I> newFunc)
         {
             m_delegate = newFunc;
@@ -39,6 +43,7 @@ namespace GameUtility
     public class EventHandler<I, J> : EventHandlerBase
     {
         private readonly Action<I, J> m_delegate;
+        public Action<I, J> GetDelegate() => m_delegate;
         public EventHandler(Action<I, J> newFunc)
         {
             m_delegate = newFunc;
@@ -55,6 +60,7 @@ namespace GameUtility
     public class EventHandler<I, J, K> : EventHandlerBase
     {
         private readonly Action<I, J, K> m_delegate;
+        public Action<I, J, K> GetDelegate() => m_delegate;
         public EventHandler(Action<I, J, K> newFunc)
         {
             m_delegate = newFunc;
@@ -84,51 +90,147 @@ namespace GameUtility
                 DontDestroyOnLoad(gameObject);
             }
         }
-        public static void Register(string eventName, EventHandlerBase listener)
+        public static int Register(string eventName, EventHandlerBase listener)
         {
             if (!Instance.m_dEventDictionary.ContainsKey(eventName))
             {
                 Instance.m_dEventDictionary[eventName] = new List<EventHandlerBase>();
             }
             Instance.m_dEventDictionary[eventName].Add(listener);
+
+            // Index of the newly added listener for potential future reference or removal.
+            return Instance.m_dEventDictionary[eventName].Count - 1;
         }
-        public static void Register<I>(string eventName, EventHandler<I> listener)
+        public static int Register<I>(string eventName, EventHandler<I> listener)
         {
             if (!Instance.m_dEventDictionary.ContainsKey(eventName))
             {
                 Instance.m_dEventDictionary[eventName] = new List<EventHandlerBase>();
             }
             Instance.m_dEventDictionary[eventName].Add(listener);
+
+            // Index of the newly added listener for potential future reference or removal.
+            return Instance.m_dEventDictionary[eventName].Count - 1;
         }
-        public static void Register<I, J>(string eventName, EventHandler<I, J> listener)
+        public static int Register<I, J>(string eventName, EventHandler<I, J> listener)
         {
             if (!Instance.m_dEventDictionary.ContainsKey(eventName))
             {
                 Instance.m_dEventDictionary[eventName] = new List<EventHandlerBase>();
             }
             Instance.m_dEventDictionary[eventName].Add(listener);
+            // Index of the newly added listener for potential future reference or removal.
+            return Instance.m_dEventDictionary[eventName].Count - 1;
         }
-        public static void Register<I, J, K>(string eventName, EventHandler<I, J, K> listener)
+        public static int Register<I, J, K>(string eventName, EventHandler<I, J, K> listener)
         {
             if (!Instance.m_dEventDictionary.ContainsKey(eventName))
             {
                 Instance.m_dEventDictionary[eventName] = new List<EventHandlerBase>();
             }
             Instance.m_dEventDictionary[eventName].Add(listener);
+            // Index of the newly added listener for potential future reference or removal.
+            return Instance.m_dEventDictionary[eventName].Count - 1;
         }
-        public static void Unregister(string eventName, EventHandlerBase listener)
+        public static void Unregister(string eventName, Action function)
         {
-            if (Instance.m_dEventDictionary.TryGetValue(
+            if (function == null)
+            {
+                return;
+            }
+
+            ref var eventDictionary = ref Instance.m_dEventDictionary;
+            if (!eventDictionary.TryGetValue(
                 eventName,
                 out List<EventHandlerBase> listeners))
             {
-                listeners.Remove(listener);
-                if (listeners.Count == 0)
-                {
-                    Instance.m_dEventDictionary.Remove(eventName);
-                }
+                return;
             }
+
+            if (listeners.Count == 0)
+            {
+                eventDictionary.Remove(eventName);
+            }
+
+            /// Remove all listeners that match the provided function.
+            listeners.Select(x => x as EventHandler)
+                     .Where(x => x != null && x.GetDelegate() == function)
+                     .ToList()
+                     .ForEach(x => listeners.Remove(x));
         }
+        public static void Unregister<I>(string eventName, Action<I> function)
+        {
+            if (function == null)
+            {
+                return;
+            }
+            ref var eventDictionary = ref Instance.m_dEventDictionary;
+            if (!eventDictionary.TryGetValue(
+                eventName,
+                out List<EventHandlerBase> listeners))
+            {
+                return;
+            }
+            if (listeners.Count == 0)
+            {
+                eventDictionary.Remove(eventName);
+            }
+
+            /// Remove all listeners that match the provided function.
+            listeners.Select(x => x as EventHandler<I>)
+                     .Where(x => x != null && x.GetDelegate() == function)
+                     .ToList()
+                     .ForEach(x => listeners.Remove(x));
+        }
+
+        public static void Unregister<I, J>(string eventName, Action<I, J> function)
+        {
+            if (function == null)
+            {
+                return;
+            }
+            ref var eventDictionary = ref Instance.m_dEventDictionary;
+            if (!eventDictionary.TryGetValue(
+                eventName,
+                out List<EventHandlerBase> listeners))
+            {
+                return;
+            }
+            if (listeners.Count == 0)
+            {
+                eventDictionary.Remove(eventName);
+            }
+            /// Remove all listeners that match the provided function.
+            listeners.Select(x => x as EventHandler<I, J>)
+                     .Where(x => x != null && x.GetDelegate() == function)
+                     .ToList()
+                     .ForEach(x => listeners.Remove(x));
+        }
+
+        public static void Unregister<I, J, K>(string eventName, Action<I, J, K> function)
+        {
+            if (function == null)
+            {
+                return;
+            }
+            ref var eventDictionary = ref Instance.m_dEventDictionary;
+            if (!eventDictionary.TryGetValue(
+                eventName,
+                out List<EventHandlerBase> listeners))
+            {
+                return;
+            }
+            if (listeners.Count == 0)
+            {
+                eventDictionary.Remove(eventName);
+            }
+            /// Remove all listeners that match the provided function.
+            listeners.Select(x => x as EventHandler<I, J, K>)
+                     .Where(x => x != null && x.GetDelegate() == function)
+                     .ToList()
+                     .ForEach(x => listeners.Remove(x));
+        }
+
         public static void TriggerEvent(string eventName)
         {
             Instance.StartCoroutine(Instance.HandleEvent(eventName));
