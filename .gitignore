@@ -164,3 +164,5 @@ x86/
 
 # Built Visual Studio Code Extensions
 *.vsix
+Packages/packages-lock.json
+Packages/manifest.json
