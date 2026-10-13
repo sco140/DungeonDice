@@ -50,6 +50,10 @@
 **/[Pp]ackages/*
 !**/[Pp]ackages/build/
 
+# BUT keep the important Unity files
+!Packages/manifest.json
+!Packages/packages-lock.json
+
 # .NET build artifacts
 artifacts/
 
