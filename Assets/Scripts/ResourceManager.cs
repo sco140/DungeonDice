@@ -21,10 +21,6 @@ public class ResourceManager : MonoBehaviour
         }
 
         Instance = this;
-    }
-
-    private void Start()
-    {
         // Register event handlers for resource updates.
         EventManager.Register("ResourceUIUpdate", new EventHandler<Event_ResourceUpdate>(UpdateUI));
 
@@ -33,6 +29,16 @@ public class ResourceManager : MonoBehaviour
             Debug.LogError("ResourceManager: One or more UI Text components are not assigned.");
             enabled = false; // Disable the script to prevent further errors.
         }
+    }
+
+    private void Start()
+    {
+
+    }
+
+    private void OnDestroy()
+    {
+        EventManager.Unregister<Event_ResourceUpdate>("ResourceUIUpdate", UpdateUI);
     }
 
     public void UpdateUI(Event_ResourceUpdate eventData)

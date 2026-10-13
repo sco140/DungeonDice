@@ -1,7 +1,7 @@
 using GameUtility;
 using System.Collections.Generic;
 using UnityEngine;
-using static BaseDice;
+
 
 public class DiceManager : MonoBehaviour
 {
@@ -15,7 +15,7 @@ public class DiceManager : MonoBehaviour
     /// <summary>
     /// A list to keep track of the retrieved resources from the dice rolls.
     /// </summary>
-    private List<ResourceFace> m_lstRetrievedResource = new List<ResourceFace>();
+    private List<BaseDice.ResourceFace> m_lstRetrievedResource = new List<BaseDice.ResourceFace>();
     // The diePrefab should be assigned in the Unity Inspector.
     // This is the prefab that will be instantiated when spawning dice.
     [SerializeField]
@@ -35,7 +35,7 @@ public class DiceManager : MonoBehaviour
     private bool m_isIdle = true;
     private void OnDestroy()
     {
-        EventManager.Unregister<int>("SpawnDice", SpawnDice);
+        EventManager.Unregister<int>("SetUpDice", SetUpDice);
         EventManager.Unregister<Vector3>("LaunchDice", LaunchDice);
     }
     private void Awake()
@@ -50,8 +50,23 @@ public class DiceManager : MonoBehaviour
         Physics.defaultSolverIterations = 12;
         Physics.defaultSolverVelocityIterations = 12;
 
+        // Validate the diePrefab and diceSpawnPoint before proceeding.
+        if (Instance.diePrefab == null)
+        {
+            Debug.LogError("Die prefab is not assigned in the inspector.");
+            Instance.enabled = false;
+            return;
+        }
+
+        if (Instance.diceSpawnPoint == null)
+        {
+            Debug.LogError("Dice spawn point is not assigned in the inspector.");
+            Instance.enabled = false;
+            return;
+        }
+
         DontDestroyOnLoad(gameObject);
-        EventManager.Register("SpawnDice", new EventHandler<int>(SpawnDice));
+        EventManager.Register("SetUpDice", new EventHandler<int>(SetUpDice));
         EventManager.Register("LaunchDice", new EventHandler<Vector3>(LaunchDice));
     }
 
@@ -78,66 +93,51 @@ public class DiceManager : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// Spawns the specified number of dice at the designated spawn point.
-    /// </summary>
-    /// <param name="diceCount">The number of dice to spawn.</param>
-    public static void SpawnDice(int diceCount)
+    public static void SetUpDice(int diceCount)
     {
-        // Validate the diePrefab and diceSpawnPoint before proceeding.
-        if (Instance.diePrefab == null)
-        {
-            Debug.LogError("Die prefab is not assigned in the inspector.");
-            Instance.enabled = false;
-            return;
-        }
-        if (Instance.diceSpawnPoint == null)
-        {
-            Debug.LogError("Dice spawn point is not assigned in the inspector.");
-            Instance.enabled = false;
-            return;
-        }
+        // Spawn the dice in a line with some padding between them.
+        var currentPosition = Instance.diceSpawnPoint.transform.position;
+        // Adjust the starting position to center the dice based on the count and padding.
+        currentPosition.x -= (diceCount - 1) / 2.0f * Instance.m_spawnPadding;
 
         var diceList = Instance.m_spawnedDiceList;
-        // if the current number of spawned dice is less than the requested count, spawn new dice.
+
+        // Loop through the dice and set their positions
+        // based on the calculated starting position and padding.
+        for (int i = 0, currentCount = diceList.Count; i < currentCount; i++)
+        {
+            diceList[i].transform.position = currentPosition;
+            // Updating padding for next dice.
+            currentPosition.x += Instance.m_spawnPadding;
+            // Ensure the die is active in case it was previously disabled.
+            diceList[i].SetActive(true);
+        }
+
         if (diceList.Count < diceCount)
         {
+            // If the current number of spawned dice is less than the requested count, spawn new dice.
             for (int i = diceList.Count; i < diceCount; i++)
             {
                 // Create a new die
                 var newDice = Instantiate(
                    Instance.diePrefab,
-                   Vector3.zero,
+                   currentPosition,
                    Quaternion.identity,
                    Instance.diceSpawnPoint.transform);
-
                 // Update dice name
                 newDice.name = $"Dice_{i}";
-
                 diceList.Add(newDice);
+                // Update padding for next dice.
+                currentPosition.x += Instance.m_spawnPadding;
             }
         }
         else if (diceList.Count > diceCount)
         {
             // disable extra dice if the count is less than the current list.
-            for (int i = diceCount, count = diceList.Count; i < count; i++)
+            for (int i = diceCount, count = diceList.Count; i < count; ++i)
             {
                 diceList[i].SetActive(false);
             }
-        }
-
-        // Spawn the dice in a line with some padding between them.
-        var currentPosition = Vector3.zero;
-        // Adjust the starting position to center the dice based on the count and padding.
-        currentPosition.x -= (diceCount - 1) / 2.0f * Instance.m_spawnPadding;
-
-        // Loop through the dice and set their positions
-        // based on the calculated starting position and padding.
-        for (int i = 0; i < diceCount; i++)
-        {
-            diceList[i].transform.position = currentPosition;
-            // Updating padding for next dice.
-            currentPosition.x += Instance.m_spawnPadding;
         }
 
         // Reset the idle state
@@ -202,9 +202,9 @@ public class DiceManager : MonoBehaviour
         }
     }
 
-    public static void ProcessDiceValue(string dieName, ResourceFace result)
+    public static void ProcessDiceValue(string dieName, BaseDice.ResourceFace result)
     {
-        Debug.Log($"Dice result for {dieName}: {result}");
+        Debug.Log($"Dice result for {dieName}: {result.m_diceFaceIndex}");
 
         Instance.m_lstRetrievedResource.Add(result);
         if (Instance.m_lstRetrievedResource.Count != Instance.m_spawnedDiceList.Count)
@@ -232,6 +232,8 @@ public class DiceManager : MonoBehaviour
                     break;
             }
         }
+
+        Debug.Log($"Dice result Red:{red} | Yellow:{yellow} | Blue:{blue}");
 
         EventManager.TriggerEvent("UpdateResources", new Event_ResourceUpdate
         {

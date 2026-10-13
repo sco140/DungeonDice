@@ -1,4 +1,5 @@
 using GameUtility;
+using System;
 using UnityEngine;
 
 public class Event_ResourceUpdate
@@ -10,7 +11,7 @@ public class Event_ResourceUpdate
 
 public class PlayerTeamManager : MonoBehaviour
 {
-    private static PlayerTeamManager Instance { get; set; }
+    public static PlayerTeamManager Instance { get; private set; }
 
     // Skill resources
     [SerializeField]
@@ -19,6 +20,8 @@ public class PlayerTeamManager : MonoBehaviour
     private int m_blue = 0;
     [SerializeField]
     private int m_yellow = 0;
+    [SerializeField]
+    private int m_diceCount = 0;
     /// <summary>
     /// TODO: Consider creating a class to control the skill menu and its interactions with the player unit controllers,
     ///       instead of having the PlayerTeamManager directly manage it.
@@ -28,22 +31,39 @@ public class PlayerTeamManager : MonoBehaviour
     [SerializeField]
     PlayerUnitController[] m_PlayerUnitController = new PlayerUnitController[3];
 
+    /// @region Getters and Setters
+
+    /// <summary>
+    /// Gets or sets the number of dice available for the player team.
+    /// </summary>
+    public static int DiceCount { get => Instance.m_diceCount; set => Instance.m_diceCount = value; }
+    /// <summary>
+    /// Returns the current skill resources as a tuple of (red, blue, yellow).
+    /// </summary>
+    /// <returns>Red, Blue, Yellow</returns>
+    public static Tuple<int, int, int> GetResources()
+    {
+        return new Tuple<int, int, int>(Instance.m_red, Instance.m_blue, Instance.m_yellow);
+    }
+    /// @endregion
+    
     private void Awake()
     {
-        if (Instance != null && Instance != this)
+        if (Instance && Instance != this)
         {
             Destroy(gameObject);
             return;
         }
 
         Instance = this;
-        DontDestroyOnLoad(gameObject);
+        // Register event handlers for resource updates.
+        EventManager.Register("UpdateResources",
+            new GameUtility.EventHandler<Event_ResourceUpdate>(UpdateResources));
     }
 
     private void Start()
     {
-        // Register event handlers for resource updates.
-        EventManager.Register("UpdateResources", new EventHandler<Event_ResourceUpdate>(UpdateResources));
+
     }
     /// <summary>
     /// TODO: Consider creating a class to control the skill menu and its interactions with the player unit controllers,

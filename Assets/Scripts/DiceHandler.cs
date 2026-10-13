@@ -1,5 +1,6 @@
 using System.Collections;
 using UnityEngine;
+using GameUtility;
 
 [System.Serializable]
 public struct DieFace
@@ -31,33 +32,21 @@ public class DiceHandler : MonoBehaviour
             value = 6,
             localNormal = Vector3.back }
     };
-    public float m_linearDamping = 0.1f;
-    public float m_angularDamping = 0.05f;
     private Rigidbody m_cmpRigidBody;
     
     [SerializeField]
     private BaseDice m_diceFaceInfo;
 
-    // Start is called once before the first execution of Update after the MonoBehaviour is created
-    void Start()
+    public void Awake()
     {
         m_cmpRigidBody = GetComponent<Rigidbody>();
         if (!m_cmpRigidBody)
         {
-            Debug.LogError("DiceHandler::Start - Rigid body component is not " +
+            Debug.LogError("DiceHandler::Awake - Rigid body component is not " +
                 "attached to the DiceHandler.");
             enabled = false;
             return;
         }
-
-        m_cmpRigidBody.useGravity = false;
-        m_cmpRigidBody.linearDamping = m_linearDamping;
-        m_cmpRigidBody.angularDamping = m_angularDamping;
-    }
-
-    // Update is called once per frame
-    void Update()
-    {
     }
 
     public void LaunchDice(Vector3 launchForce, Vector3 torqueForce)

@@ -80,15 +80,14 @@ namespace GameUtility
         public static EventManager Instance { get; private set; }
         private void Awake()
         {
-            if (Instance != null && Instance != this)
+            if (Instance && Instance != this)
             {
                 Destroy(gameObject);
+                return;
             }
-            else
-            {
-                Instance = this;
-                DontDestroyOnLoad(gameObject);
-            }
+
+            Instance = this;
+            DontDestroyOnLoad(gameObject);
         }
         public static int Register(string eventName, EventHandlerBase listener)
         {

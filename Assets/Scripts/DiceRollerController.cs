@@ -1,6 +1,7 @@
 using GameUtility;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.UI;
 /// <summary>
 /// This class handles the user input for rolling dice in the game. 
 /// It listens for pointer down and up events to determine the direction and strength of the dice launch. 
@@ -11,34 +12,32 @@ public class DiceRollerController :
     IPointerDownHandler,
     IPointerUpHandler
 {
-    public int m_diceCount = 6;
     public GameObject m_objDiceCameraPanel;
+    public Image m_cBackgroundPanel;
     Vector2 m_initialMousePosition;
     private void Awake()
     {
-
+        EventManager.Register("EnableDiceLaunch", new EventHandler<int>(EnableDiceLaunch));
+        EventManager.Register("DisableDiceLaunch", new EventHandler(DisableDiceLaunch));
     }
     private void Start()
     {
-        EventManager.Register("EnableDiceLaunch", new EventHandler<int>(EnableDiceLaunch));
-        EventManager.Register("DisableDiceLaunch", new EventHandler(DisableDiceLaunch));
-
         if (m_objDiceCameraPanel == null)
         {
             Debug.LogError("DiceRollerController: Dice camera is not assigned.");
             enabled = false; // Disable the script to prevent further errors.
         }
-
-        EnableDiceLaunch(1);
     }
     public void EnableDiceLaunch(int diceAmount)
     {
-        EventManager.TriggerEvent("SpawnDice", diceAmount);
+        EventManager.TriggerEvent("SetUpDice", diceAmount);
         m_objDiceCameraPanel.SetActive(true);
+        m_cBackgroundPanel.enabled = true;
     }
     public void DisableDiceLaunch()
     {
         m_objDiceCameraPanel.SetActive(false);
+        m_cBackgroundPanel.enabled = false;
     }
     private void OnDestroy()
     {
