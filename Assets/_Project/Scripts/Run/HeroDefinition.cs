@@ -4,6 +4,18 @@ using UnityEngine;
 
 namespace DungeonDice.Run
 {
+    /// <summary>The three built-in signature skills. Resolved in <c>CombatState.CastSignature</c>.</summary>
+    public enum SignatureKind
+    {
+        None,
+        /// <summary>Knight: Shield 6 to all allies.</summary>
+        Bulwark,
+        /// <summary>Arcanist: consume a target's statuses, deal damage equal to the stacks.</summary>
+        Detonate,
+        /// <summary>Trickster: set any one unspent hero die to a chosen face.</summary>
+        LoadedDice,
+    }
+
     /// <summary>
     /// A hero class as data: its colour domain, die (or dice), health and signature skill text.
     /// Six exist for the pick screen; the three with <see cref="playableInPrototype"/> can be chosen.
@@ -28,8 +40,8 @@ namespace DungeonDice.Run
         [Header("Signature skill (3 mana of this hero's colour)")]
         public string signatureName;
         [TextArea] public string signatureDescription;
-        [Tooltip("Resolved in the combat step; may be empty until then.")]
-        public BaseSkill signatureSkill;
+        [Tooltip("Which built-in signature CombatState resolves. None for locked heroes.")]
+        public SignatureKind signatureKind = SignatureKind.None;
 
         [Header("Presentation")]
         public Sprite portrait;

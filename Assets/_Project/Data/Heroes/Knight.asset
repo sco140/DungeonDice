@@ -21,5 +21,5 @@ MonoBehaviour:
   - {fileID: 11400000, guid: eb61f06de3694b346b2cbf8f0c6f06a2, type: 2}
   signatureName: Bulwark
   signatureDescription: Shield 6 to all allies.
-  signatureSkill: {fileID: 0}
+  signatureKind: 1
   portrait: {fileID: 0}

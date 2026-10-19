@@ -20,5 +20,5 @@ MonoBehaviour:
   dice: []
   signatureName: 
   signatureDescription: 
-  signatureSkill: {fileID: 0}
+  signatureKind: 0
   portrait: {fileID: 0}

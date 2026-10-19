@@ -22,5 +22,5 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 7d298deb40a21754b99158ec7702715c, type: 2}
   signatureName: Loaded Dice
   signatureDescription: Set any one die, hero or traversal, to a chosen face.
-  signatureSkill: {fileID: 0}
+  signatureKind: 3
   portrait: {fileID: 0}

@@ -110,11 +110,18 @@ namespace DungeonDice.EditorTools
                 Screen<HeroPickScreen>(canvasGo.transform, RunPhase.HeroPick, null),
                 Screen<TraversalPickScreen>(canvasGo.transform, RunPhase.TraversalPick, null),
                 Screen<MapScreen>(canvasGo.transform, RunPhase.Map, null),
-                Screen<PlaceholderScreen>(canvasGo.transform, RunPhase.Combat, s => s.Configure(RunPhase.Combat, RunPhase.Map, "Combat", PlaceholderScreen.ContinueAction.CompleteNode)),
+                Screen<CombatScreen>(canvasGo.transform, RunPhase.Combat, null),
                 Screen<PlaceholderScreen>(canvasGo.transform, RunPhase.RunEnd, s => s.Configure(RunPhase.RunEnd, RunPhase.HeroPick, "Run Over")),
             };
             router.SetScreens(screens);
             runController.Configure(router, roster, act, traversalPool, treasureDie, traversalProfile, combatProfile);
+
+            var regulars = EnemyAssetAuthoring.Regulars.Select(EnemyAssetAuthoring.Load).ToList();
+            var elite = EnemyAssetAuthoring.Load(EnemyAssetAuthoring.Elite);
+            var boss = EnemyAssetAuthoring.Load(EnemyAssetAuthoring.Boss);
+            if (regulars.Any(e => e == null) || elite == null || boss == null)
+                Debug.LogWarning("PrototypeSceneAuthoring: some enemies are missing; run DungeonDice ▸ Author Enemies first.");
+            runController.ConfigureEnemies(regulars.Where(e => e != null), elite, boss);
 
             // The dice box, out of the main camera's view. Its own camera renders to the overlay.
             var diceBox = (GameObject)PrefabUtility.InstantiatePrefab(diceBoxPrefab, scene);

@@ -25,23 +25,23 @@ namespace DungeonDice.EditorTools
 
             Upsert("Knight", DieColor.Red, 30, true,
                 "Consistent and defensive. No bad faces.",
-                "Bulwark", "Shield 6 to all allies.", Die("Knight"));
+                "Bulwark", "Shield 6 to all allies.", SignatureKind.Bulwark, Die("Knight"));
             Upsert("Arcanist", DieColor.Blue, 20, true,
                 "Statuses: burn, poison, weaken, hex.",
-                "Detonate", "Consume a target's statuses and deal damage equal to their stacks.", Die("Arcanist"));
+                "Detonate", "Consume a target's statuses and deal damage equal to their stacks.", SignatureKind.Detonate, Die("Arcanist"));
             Upsert("Trickster", DieColor.Yellow, 24, true,
                 "Bends dice: nudge, flip, reroll, mirror. Works on traversal rolls too.",
-                "Loaded Dice", "Set any one die, hero or traversal, to a chosen face.", Die("Trickster"));
+                "Loaded Dice", "Set any one die, hero or traversal, to a chosen face.", SignatureKind.LoadedDice, Die("Trickster"));
 
             Upsert("Rogue", DieColor.Red, 22, false,
                 "Red + Blue. Damage plus poison combos. Coming later.",
-                "", "", null);
+                "", "", SignatureKind.None, null);
             Upsert("Berserker", DieColor.Red, 28, false,
                 "Red + Yellow. Heavy damage, self-modifying Rage. Coming later.",
-                "", "", null);
+                "", "", SignatureKind.None, null);
             Upsert("Cleric", DieColor.Blue, 22, false,
                 "Blue + Yellow. Cleanse and heal, Bless another die. Coming later.",
-                "", "", null);
+                "", "", SignatureKind.None, null);
 
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
@@ -59,7 +59,7 @@ namespace DungeonDice.EditorTools
         }
 
         private static void Upsert(string name, DieColor color, int maxHealth, bool playable,
-            string description, string signatureName, string signatureDescription, DieDefinition die)
+            string description, string signatureName, string signatureDescription, SignatureKind signatureKind, DieDefinition die)
         {
             var path = $"{HeroDir}/{name}.asset";
             var hero = AssetDatabase.LoadAssetAtPath<HeroDefinition>(path);
@@ -77,6 +77,7 @@ namespace DungeonDice.EditorTools
             hero.description = description;
             hero.signatureName = signatureName;
             hero.signatureDescription = signatureDescription;
+            hero.signatureKind = signatureKind;
             hero.dice.Clear();
             if (die != null) hero.dice.Add(die);
             EditorUtility.SetDirty(hero);

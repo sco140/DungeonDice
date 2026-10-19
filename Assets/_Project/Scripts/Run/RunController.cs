@@ -38,6 +38,13 @@ namespace DungeonDice.Run
         [SerializeField] private DiceBoxProfile m_traversalProfile;
         [SerializeField] private DiceBoxProfile m_combatProfile;
 
+        [Header("Enemies")]
+        [Tooltip("Combat nodes spawn two of these, picked with the run's seeded RNG.")]
+        [SerializeField] private List<Combat.EnemyDefinition> m_regularEnemies = new();
+        [SerializeField] private Combat.EnemyDefinition m_eliteEnemy;
+        [SerializeField] private Combat.EnemyDefinition m_bossEnemy;
+        [Min(1)] [SerializeField] private int m_regularsPerCombat = 2;
+
         public RunState State { get; private set; } = new();
         public IReadOnlyList<HeroDefinition> Roster => m_roster;
         public IReadOnlyList<DieDefinition> StartingTraversalPool => m_startingTraversalPool;
@@ -187,6 +194,39 @@ namespace DungeonDice.Run
             }
             State.MoveTo(nodeIndex);
             Debug.Log($"RunController: travelled to node {nodeIndex} ({State.CurrentNode.name}).");
+        }
+
+        /// <summary>
+        /// The enemies a node spawns. Combat: two regulars chosen with the run RNG (repeats allowed);
+        /// Elite and Boss: their single enemy. Empty if nothing is configured.
+        /// </summary>
+        public List<Combat.EnemyDefinition> EnemiesFor(NodeType type)
+        {
+            var result = new List<Combat.EnemyDefinition>();
+            switch (type)
+            {
+                case NodeType.Elite:
+                    if (m_eliteEnemy != null) result.Add(m_eliteEnemy);
+                    break;
+                case NodeType.Boss:
+                    if (m_bossEnemy != null) result.Add(m_bossEnemy);
+                    break;
+                default:
+                    if (m_regularEnemies.Count == 0) break;
+                    var rng = State.Rng ?? RollService.Shared;
+                    for (int i = 0; i < m_regularsPerCombat; i++) result.Add(rng.Pick(m_regularEnemies));
+                    break;
+            }
+            return result;
+        }
+
+        /// <summary>Authoring-time wiring; the scene tool calls this.</summary>
+        public void ConfigureEnemies(IEnumerable<Combat.EnemyDefinition> regulars, Combat.EnemyDefinition elite, Combat.EnemyDefinition boss)
+        {
+            m_regularEnemies.Clear();
+            m_regularEnemies.AddRange(regulars);
+            m_eliteEnemy = elite;
+            m_bossEnemy = boss;
         }
 
         /// <summary>Authoring-time wiring; the scene tool calls this.</summary>

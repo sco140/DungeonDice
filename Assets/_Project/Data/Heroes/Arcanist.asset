@@ -22,5 +22,5 @@ MonoBehaviour:
   signatureName: Detonate
   signatureDescription: Consume a target's statuses and deal damage equal to their
     stacks.
-  signatureSkill: {fileID: 0}
+  signatureKind: 2
   portrait: {fileID: 0}
