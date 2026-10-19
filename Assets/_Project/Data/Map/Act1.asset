@@ -1,0 +1,130 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9d4533daf68c8634fa3c4f31cd10b0b9, type: 3}
+  m_Name: Act1
+  m_EditorClassIdentifier: DungeonDice::DungeonDice.Map.ActDefinition
+  displayName: "Act I \u2014 The Sunken Vault"
+  startNode: 0
+  nodes:
+  - name: Vault Gate
+    type: 0
+    description: The way in. Three doors; your dice choose.
+    nextNode: -1
+    fork:
+      minDice: 1
+      maxDice: 3
+      paths:
+      - minTotal: 1
+        maxTotal: 5
+        targetNode: 1
+      - minTotal: 6
+        maxTotal: 10
+        targetNode: 2
+      - minTotal: 11
+        maxTotal: 18
+        targetNode: 3
+  - name: Forgotten Cache
+    type: 4
+    description: Something glints under the silt.
+    nextNode: 4
+    fork:
+      minDice: 1
+      maxDice: 3
+      paths: []
+  - name: Drowned Hall
+    type: 1
+    description: Skeletal guards still hold their post.
+    nextNode: 4
+    fork:
+      minDice: 1
+      maxDice: 3
+      paths: []
+  - name: The Warden
+    type: 2
+    description: A vault warden, armoured and patient.
+    nextNode: 4
+    fork:
+      minDice: 1
+      maxDice: 3
+      paths: []
+  - name: Dry Alcove
+    type: 3
+    description: A moment to breathe. Then two dice, maybe three.
+    nextNode: -1
+    fork:
+      minDice: 2
+      maxDice: 3
+      paths:
+      - minTotal: 2
+        maxTotal: 8
+        targetNode: 5
+      - minTotal: 9
+        maxTotal: 13
+        targetNode: 6
+      - minTotal: 14
+        maxTotal: 18
+        targetNode: 7
+  - name: Flooded Stair
+    type: 1
+    description: Things crawl up from the water.
+    nextNode: 8
+    fork:
+      minDice: 1
+      maxDice: 3
+      paths: []
+  - name: Chained Golem
+    type: 2
+    description: It wakes when you cross the threshold.
+    nextNode: 8
+    fork:
+      minDice: 1
+      maxDice: 3
+      paths: []
+  - name: Sealed Reliquary
+    type: 4
+    description: Untouched for an age.
+    nextNode: 8
+    fork:
+      minDice: 1
+      maxDice: 3
+      paths: []
+  - name: Last Lantern
+    type: 3
+    description: Roll all three. Low keeps you safe but slow; high goes straight
+      for the Boss.
+    nextNode: -1
+    fork:
+      minDice: 3
+      maxDice: 3
+      paths:
+      - minTotal: 3
+        maxTotal: 10
+        targetNode: 9
+      - minTotal: 11
+        maxTotal: 18
+        targetNode: 10
+  - name: Antechamber
+    type: 1
+    description: The Boss's attendants.
+    nextNode: 10
+    fork:
+      minDice: 1
+      maxDice: 3
+      paths: []
+  - name: The Vault Heart
+    type: 5
+    description: What the vault was built to keep in.
+    nextNode: -1
+    fork:
+      minDice: 1
+      maxDice: 3
+      paths: []

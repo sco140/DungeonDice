@@ -31,6 +31,7 @@ namespace DungeonDice.Dice
         {
             EventManager.Register(GameEvents.EnableDiceLaunch, new EventHandler<int>(EnableDiceLaunch));
             EventManager.Register(GameEvents.DisableDiceLaunch, new EventHandler(DisableDiceLaunch));
+            EventManager.Register(GameEvents.OpenDiceBox, new EventHandler(OpenDiceBox));
         }
 
         private void Start()
@@ -46,6 +47,7 @@ namespace DungeonDice.Dice
         {
             EventManager.Unregister<int>(GameEvents.EnableDiceLaunch, EnableDiceLaunch);
             EventManager.Unregister(GameEvents.DisableDiceLaunch, DisableDiceLaunch);
+            EventManager.Unregister(GameEvents.OpenDiceBox, OpenDiceBox);
         }
 
         public void SetRerollSelection(IEnumerable<int> ownerIds)
@@ -64,6 +66,9 @@ namespace DungeonDice.Dice
         }
 
         public void DisableDiceLaunch() => SetOverlayVisible(false);
+
+        /// <summary>Show the overlay for dice the caller has already set up (map and combat do this).</summary>
+        public void OpenDiceBox() => SetOverlayVisible(true);
 
         private void SetOverlayVisible(bool visible)
         {

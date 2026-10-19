@@ -1,5 +1,9 @@
+using System;
 using System.Collections.Generic;
+using System.Linq;
 using DungeonDice.Core;
+using DungeonDice.Dice;
+using DungeonDice.Map;
 using GameUtility;
 using UnityEngine;
 
@@ -8,7 +12,9 @@ namespace DungeonDice.Run
     /// <summary>
     /// Owns the <see cref="RunState"/> and drives the run through its phases, showing each phase's
     /// screen via <see cref="ScreenRouter"/>. Screens call back into it (<see cref="StartRun"/>,
-    /// <see cref="SetPhase"/>) rather than touching the state directly.
+    /// <see cref="ConfirmTraversalDice"/>, <see cref="EnterCurrentNode"/>, <see cref="TravelTo"/>,
+    /// <see cref="CompleteNode"/>) rather than touching the state directly. Also the one place that
+    /// knows which assets the run uses: the act, the dice box profiles, the starting traversal pool.
     /// </summary>
     public class RunController : MonoBehaviour
     {
@@ -20,8 +26,24 @@ namespace DungeonDice.Run
         [Tooltip("0 = random seed per run. Any other value makes the run reproducible (apart from the dice).")]
         [SerializeField] private int m_seedOverride = 0;
 
+        [Header("Map")]
+        [SerializeField] private ActDefinition m_act;
+        [Tooltip("The dice offered at the start node; the player takes RunState.TraversalPickCount of them.")]
+        [SerializeField] private List<DieDefinition> m_startingTraversalPool = new();
+        [Tooltip("Placeholder Treasure reward until the reward screen exists: this die is added to the party's traversal dice.")]
+        [SerializeField] private DieDefinition m_treasureDie;
+        [Range(0f, 1f)] [SerializeField] private float m_restHealFraction = 0.3f;
+
+        [Header("Dice box profiles")]
+        [SerializeField] private DiceBoxProfile m_traversalProfile;
+        [SerializeField] private DiceBoxProfile m_combatProfile;
+
         public RunState State { get; private set; } = new();
         public IReadOnlyList<HeroDefinition> Roster => m_roster;
+        public IReadOnlyList<DieDefinition> StartingTraversalPool => m_startingTraversalPool;
+        public ActDefinition Act => m_act;
+        public DiceBoxProfile TraversalProfile => m_traversalProfile;
+        public DiceBoxProfile CombatProfile => m_combatProfile;
         public RunPhase Phase => State.Phase;
 
         private void Awake()
@@ -45,14 +67,32 @@ namespace DungeonDice.Run
             if (Instance == this) Instance = null;
         }
 
+        // ---------------------------------------------------------------- run lifecycle
+
         /// <summary>Called by the Hero Pick screen with exactly three playable heroes.</summary>
         public void StartRun(IReadOnlyList<HeroDefinition> party)
         {
-            int seed = m_seedOverride != 0 ? m_seedOverride : System.Environment.TickCount;
+            int seed = m_seedOverride != 0 ? m_seedOverride : Environment.TickCount;
             State.StartNewRun(party, seed);
             RollService.ResetShared(seed);
-            Debug.Log($"RunController: run started, seed {seed}, party {string.Join(", ", party.ConvertAllNames())}.");
+            Debug.Log($"RunController: run started, seed {seed}, party {string.Join(", ", party.Select(h => h.displayName))}.");
             SetPhase(RunPhase.TraversalPick);
+        }
+
+        /// <summary>Called by the Traversal Pick screen; enters the act at its start node.</summary>
+        public void ConfirmTraversalDice(IReadOnlyList<DieDefinition> dice)
+        {
+            if (dice == null || dice.Count != RunState.TraversalPickCount)
+                throw new ArgumentException($"Pick exactly {RunState.TraversalPickCount} traversal dice.", nameof(dice));
+            if (m_act == null)
+            {
+                Debug.LogError("RunController: no act assigned.");
+                return;
+            }
+            State.SetTraversalDice(dice);
+            State.EnterAct(m_act);
+            Debug.Log($"RunController: traversal dice {string.Join(", ", dice.Select(d => d.displayName))}; entering {m_act.displayName}.");
+            SetPhase(RunPhase.Map);
         }
 
         /// <summary>Back to the pick screen, forgetting the current run.</summary>
@@ -69,20 +109,100 @@ namespace DungeonDice.Run
             EventManager.TriggerEvent(GameEvents.RunPhaseChanged, phase);
         }
 
+        // ---------------------------------------------------------------- map flow
+
+        /// <summary>
+        /// Play the current node's content. Combat-type nodes hand off to the Combat phase and come
+        /// back through <see cref="CompleteNode"/>; Rest and Treasure resolve immediately.
+        /// </summary>
+        public void EnterCurrentNode()
+        {
+            var node = State.CurrentNode;
+            if (node == null || State.CurrentNodeResolved) return;
+
+            switch (node.type)
+            {
+                case NodeType.Combat:
+                case NodeType.Elite:
+                case NodeType.Boss:
+                    SetPhase(RunPhase.Combat);
+                    break;
+
+                case NodeType.Rest:
+                    foreach (var hero in State.LivingHeroes)
+                    {
+                        int healed = hero.Heal(Mathf.CeilToInt(hero.MaxHealth * m_restHealFraction));
+                        Debug.Log($"RunController: {hero.Definition.displayName} rests, +{healed} HP.");
+                    }
+                    State.ResolveCurrentNode();
+                    break;
+
+                case NodeType.Treasure:
+                    // Placeholder reward: a new traversal die. The reward choice screen is a later step.
+                    if (m_treasureDie != null)
+                    {
+                        State.AddTraversalDie(m_treasureDie);
+                        Debug.Log($"RunController: treasure grants {m_treasureDie.displayName}.");
+                    }
+                    State.ResolveCurrentNode();
+                    break;
+
+                default:
+                    State.ResolveCurrentNode();
+                    break;
+            }
+        }
+
+        /// <summary>Called when the current node's combat is over (won). The Boss ends the run in victory.</summary>
+        public void CompleteNode()
+        {
+            var node = State.CurrentNode;
+            if (node == null) return;
+            State.ResolveCurrentNode();
+            if (node.type == NodeType.Boss)
+            {
+                State.EndRun(RunOutcome.Victory);
+                SetPhase(RunPhase.RunEnd);
+            }
+            else
+            {
+                SetPhase(RunPhase.Map);
+            }
+        }
+
+        /// <summary>The party is dead. Ends the run in defeat.</summary>
+        public void PartyWiped()
+        {
+            State.EndRun(RunOutcome.Defeat);
+            SetPhase(RunPhase.RunEnd);
+        }
+
+        /// <summary>Move along a resolved node's exit (single exit or a path chosen by a fork roll).</summary>
+        public void TravelTo(int nodeIndex)
+        {
+            if (!State.CurrentNodeResolved)
+            {
+                Debug.LogWarning("RunController: resolve the current node before travelling.");
+                return;
+            }
+            State.MoveTo(nodeIndex);
+            Debug.Log($"RunController: travelled to node {nodeIndex} ({State.CurrentNode.name}).");
+        }
+
         /// <summary>Authoring-time wiring; the scene tool calls this.</summary>
-        public void Configure(ScreenRouter router, IEnumerable<HeroDefinition> roster)
+        public void Configure(ScreenRouter router, IEnumerable<HeroDefinition> roster, ActDefinition act,
+            IEnumerable<DieDefinition> startingTraversalPool, DieDefinition treasureDie,
+            DiceBoxProfile traversalProfile, DiceBoxProfile combatProfile)
         {
             m_router = router;
             m_roster.Clear();
             m_roster.AddRange(roster);
-        }
-    }
-
-    internal static class HeroListExtensions
-    {
-        public static IEnumerable<string> ConvertAllNames(this IReadOnlyList<HeroDefinition> heroes)
-        {
-            foreach (var hero in heroes) yield return hero != null ? hero.displayName : "null";
+            m_act = act;
+            m_startingTraversalPool.Clear();
+            m_startingTraversalPool.AddRange(startingTraversalPool);
+            m_treasureDie = treasureDie;
+            m_traversalProfile = traversalProfile;
+            m_combatProfile = combatProfile;
         }
     }
 }

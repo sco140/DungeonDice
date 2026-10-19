@@ -48,6 +48,27 @@ namespace DungeonDice.EditorTools
                 Debug.LogError("PrototypeSceneAuthoring: DiceBox prefab missing; run DungeonDice ▸ Author DiceBox Prefab first.");
                 return;
             }
+            var act = ActAssetAuthoring.Load();
+            if (act == null)
+            {
+                Debug.LogError("PrototypeSceneAuthoring: Act1 missing; run DungeonDice ▸ Author Act 1 first.");
+                return;
+            }
+            var traversalPool = new[] { "LowRoad", "Steady", "HighRoad", "Wild" }
+                .Select(n => AssetDatabase.LoadAssetAtPath<Dice.DieDefinition>($"Assets/_Project/Data/Dice/Traversal/{n}.asset")).ToList();
+            var treasureDie = AssetDatabase.LoadAssetAtPath<Dice.DieDefinition>("Assets/_Project/Data/Dice/Traversal/Pilgrim.asset");
+            if (traversalPool.Any(d => d == null) || treasureDie == null)
+            {
+                Debug.LogError("PrototypeSceneAuthoring: traversal dice missing; run DungeonDice ▸ Author Prototype Dice first.");
+                return;
+            }
+            var traversalProfile = AssetDatabase.LoadAssetAtPath<Dice.DiceBoxProfile>(DiceBoxProfileAuthoring.TraversalProfilePath);
+            var combatProfile = AssetDatabase.LoadAssetAtPath<Dice.DiceBoxProfile>(DiceBoxProfileAuthoring.CombatProfilePath);
+            if (traversalProfile == null || combatProfile == null)
+            {
+                Debug.LogError("PrototypeSceneAuthoring: dice box profiles missing; run DungeonDice ▸ Author DiceBox Profiles first.");
+                return;
+            }
 
             AuthoringUtil.EnsureFolder("Assets/_Project/Scenes");
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
@@ -87,13 +108,13 @@ namespace DungeonDice.EditorTools
             var screens = new List<ScreenRouter.ScreenEntry>
             {
                 Screen<HeroPickScreen>(canvasGo.transform, RunPhase.HeroPick, null),
-                Screen<PlaceholderScreen>(canvasGo.transform, RunPhase.TraversalPick, s => s.Configure(RunPhase.TraversalPick, RunPhase.Map, "Pick Traversal Dice")),
-                Screen<PlaceholderScreen>(canvasGo.transform, RunPhase.Map, s => s.Configure(RunPhase.Map, RunPhase.Combat, "The Map")),
-                Screen<PlaceholderScreen>(canvasGo.transform, RunPhase.Combat, s => s.Configure(RunPhase.Combat, RunPhase.RunEnd, "Combat")),
+                Screen<TraversalPickScreen>(canvasGo.transform, RunPhase.TraversalPick, null),
+                Screen<MapScreen>(canvasGo.transform, RunPhase.Map, null),
+                Screen<PlaceholderScreen>(canvasGo.transform, RunPhase.Combat, s => s.Configure(RunPhase.Combat, RunPhase.Map, "Combat", PlaceholderScreen.ContinueAction.CompleteNode)),
                 Screen<PlaceholderScreen>(canvasGo.transform, RunPhase.RunEnd, s => s.Configure(RunPhase.RunEnd, RunPhase.HeroPick, "Run Over")),
             };
             router.SetScreens(screens);
-            runController.Configure(router, roster);
+            runController.Configure(router, roster, act, traversalPool, treasureDie, traversalProfile, combatProfile);
 
             // The dice box, out of the main camera's view. Its own camera renders to the overlay.
             var diceBox = (GameObject)PrefabUtility.InstantiatePrefab(diceBoxPrefab, scene);

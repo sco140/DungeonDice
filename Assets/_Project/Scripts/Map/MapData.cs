@@ -1,0 +1,78 @@
+using System;
+using System.Collections.Generic;
+using UnityEngine;
+
+namespace DungeonDice.Map
+{
+    public enum NodeType
+    {
+        Start,
+        Combat,
+        Elite,
+        Rest,
+        Treasure,
+        Boss,
+    }
+
+    /// <summary>One exit of a fork: an inclusive range of roll totals and the node it leads to.</summary>
+    [Serializable]
+    public class PathBracket
+    {
+        public int minTotal;
+        public int maxTotal;
+        public int targetNode;
+
+        public bool Contains(int total) => total >= minTotal && total <= maxTotal;
+
+        /// <summary>"≤5", "6–10" or "11+" depending on where the bracket sits in the fork's range.</summary>
+        public string RangeLabel(Fork fork)
+        {
+            bool openLow = minTotal <= fork.MinTotal;
+            bool openHigh = maxTotal >= fork.MaxTotal;
+            if (openLow && openHigh) return "any";
+            if (openLow) return $"≤{maxTotal}";
+            if (openHigh) return $"{minTotal}+";
+            return minTotal == maxTotal ? minTotal.ToString() : $"{minTotal}–{maxTotal}";
+        }
+    }
+
+    /// <summary>
+    /// A fork is resolved by rolling between <see cref="minDice"/> and <see cref="maxDice"/> traversal dice;
+    /// the summed total picks the path. Brackets must cover every total from
+    /// <see cref="MinTotal"/> to <see cref="MaxTotal"/> with no gaps or overlaps (see <c>ForkValidator</c>),
+    /// so the player never "fails" a roll.
+    /// </summary>
+    [Serializable]
+    public class Fork
+    {
+        /// <summary>Every traversal die in the prototype has faces between these pip values.</summary>
+        public const int MinFace = 1;
+        public const int MaxFace = 6;
+
+        [Min(1)] public int minDice = 1;
+        [Min(1)] public int maxDice = 3;
+        public List<PathBracket> paths = new();
+
+        public bool HasPaths => paths != null && paths.Count > 0;
+        public int MinTotal => minDice * MinFace;
+        public int MaxTotal => maxDice * MaxFace;
+        public bool AllowsDiceCount(int count) => count >= minDice && count <= maxDice;
+        public string DiceCountLabel => minDice == maxDice ? $"roll {minDice}" : $"roll {minDice}–{maxDice}";
+    }
+
+    /// <summary>A node of the act. Exactly one of <see cref="fork"/> or <see cref="nextNode"/> says where to go next; Boss has neither.</summary>
+    [Serializable]
+    public class MapNode
+    {
+        public string name;
+        public NodeType type;
+        [TextArea] public string description;
+        [Tooltip("Single exit when there is no fork. -1 = terminal (Boss).")]
+        public int nextNode = -1;
+        public Fork fork;
+
+        public bool HasFork => fork != null && fork.HasPaths;
+        public bool IsTerminal => !HasFork && nextNode < 0;
+        public bool IsCombat => type == NodeType.Combat || type == NodeType.Elite || type == NodeType.Boss;
+    }
+}

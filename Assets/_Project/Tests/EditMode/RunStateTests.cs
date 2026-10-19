@@ -134,7 +134,6 @@ namespace DungeonDice.Tests
             var run = new RunState();
             run.StartNewRun(new[] { Hero("A"), Hero("B"), Hero("C") }, 5);
             run.SetTraversalDice(new[] { Hero("T").PrimaryDie });
-            run.CurrentNodeIndex = 4;
 
             run.Clear();
 

@@ -11,6 +11,8 @@ namespace DungeonDice.Core
         public const string EnableDiceLaunch = "EnableDiceLaunch";
         /// <summary>No payload. Hide the roll overlay.</summary>
         public const string DisableDiceLaunch = "DisableDiceLaunch";
+        /// <summary>No payload. Show the roll overlay without touching the dice (caller already called SetUpDice).</summary>
+        public const string OpenDiceBox = "OpenDiceBox";
         /// <summary>int diceCount. Spawn or re-pool dice in the box.</summary>
         public const string SetUpDice = "SetUpDice";
         /// <summary>UnityEngine.Vector3 drag vector (x, 0, y). Throw the active dice.</summary>
