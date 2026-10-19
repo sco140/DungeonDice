@@ -37,7 +37,9 @@ namespace DungeonDice.Core
         }
 
         /// <summary>
-        /// Previews the "bank it" rule: every die yields 1 mana of its color.
+        /// Previews the "bank it" rule: every die yields 1 mana of its color, then the overlay closes.
+        /// The dice box itself never hides the overlay, because combat needs it open for reroll and
+        /// use-or-bank decisions.
         /// </summary>
         private void OnRollCompleted(RollCompletedEvent roll)
         {
@@ -52,6 +54,7 @@ namespace DungeonDice.Core
                 }
             }
             EventManager.TriggerEvent(GameEvents.UpdateResources, update);
+            EventManager.TriggerEvent(GameEvents.DisableDiceLaunch);
         }
 
         public void EndTurn()

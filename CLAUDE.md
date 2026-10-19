@@ -19,6 +19,7 @@ Deeper references, read before non-trivial changes:
 - Definition of done: `recompile_status` shows no errors, the console has no new errors, the Play mode round trip works, and tests pass once they exist.
 - New gameplay code goes in `Assets/_Project/Scripts/<System>/`; leave existing scripts in place unless the task is a refactor.
 - Plan first for anything touching `EventManager` event names, `DiceManager`, or rolling.
+- Comment the code for humans: a short summary on every type and non-obvious method, and a line wherever the *why* is not visible from the code (a Unity quirk, a design decision, an ordering constraint). Descriptive but concise. Other people will build on this project, not only Claude.
 - Ask before: changing `Packages/manifest.json`, deleting files (including the dead code listed under Known traps), or changing global `Physics` settings.
 - When you fix a Known Trap, remove it from this file in the same commit.
 
@@ -72,7 +73,10 @@ Notes:
   unity command test_status --format json                               # poll until status == completed
   ```
   `unity test . --mode EditMode|PlayMode` is the headless alternative for CI (exit 8 = tests failed; other non-zero = the run itself failed).
-- Authoring data: `DungeonDice.EditorTools.DiceAssetAuthoring.CreateAll()` (menu **DungeonDice ▸ Author Prototype Dice**, or via `eval`) rewrites the hero/traversal `DieDefinition` assets from the proposal tables in place, keeping GUIDs. Extend it rather than hand-editing `.asset` files.
+- Authoring tools (menu **DungeonDice ▸ …**, or call the static method via `eval`), all re-runnable and GUID-preserving. Extend these rather than hand-editing `.asset`/`.prefab` files:
+  - `DiceAssetAuthoring.CreateAll()` rewrites the hero/traversal `DieDefinition` assets from the proposal tables.
+  - `DiceBoxPrefabAuthoring.CreateOrUpdate()` rebuilds `Assets/_Project/Prefabs/DiceBox.prefab` and pins `EventManager`'s Script Execution Order to −100.
+- `eval` gotcha: the C# is passed through the shell in single quotes, so a `' '` char literal (or any apostrophe) splits the argument and the CLI reports bogus `--timeout` errors. Use `string.Empty.PadLeft(n)` or `" "` instead.
 - Build: `unity build . --target StandaloneWindows64` (nothing is configured for builds yet; only `SampleScene` is in Build Settings).
 
 ## Repository hygiene
@@ -98,7 +102,17 @@ die sleeps → DiceHandler.GetFaceUp → DiceManager.ProcessDiceValue(die, faceI
 all active dice settled → DiceManager.CompleteRoll: restore gravity → RollCompleted(RollCompletedEvent) → DisableDiceLaunch
 ```
 
-`DiceManager` knows nothing about mana or combat. Consumers subscribe to `RollCompleted`. In the legacy SampleScene the consumer is `GameManager`, which previews the "bank it" rule by granting 1 mana of each die's color to `PlayerTeamManager` (Before hook → overwrite pool → `ResourceUIUpdate` → HUD → After hook). Nothing calls `StartTurn`/`EndTurn` yet. `SetUpDice(IReadOnlyList<DieDefinition>)` injects one definition per die; `SetUpDice(int)` keeps whatever the prefab carries.
+`DiceManager` is a small state machine, `DiceBoxState { Empty, Idle, Rolling, Settled }`, and knows nothing about mana or combat:
+
+- `SetUpDice(IReadOnlyList<DieDefinition>)` injects one definition per die (owner id = index); `SetUpDice(int)` keeps whatever the prefab carries. Either resets to Idle and clears `LastRoll`.
+- `LaunchDice(Vector3)` is only valid in Idle. `RelaunchDice(ownerIds, Vector3)` (event `RelaunchDice` with a `RelaunchRequest`) is only valid in Settled, skips Locked results, leaves the other dice where they lie, and fires `RollCompleted` again with the full set.
+- `ApplyModifier(ownerId, IDieModifier)` in Settled applies the modifier to that `RollResult`, calls `DiceHandler.ShowFace` so the physical die matches, and fires `RollResultModified`.
+- Gravity is overridden only while Rolling and restored on completion. Solver iterations are set per die rigidbody, never globally.
+- The box never hides the overlay. Consumers do (combat needs it open for reroll and use-or-bank).
+
+Consumers subscribe to `RollCompleted`. In the legacy SampleScene the consumer is `GameManager`, which previews the "bank it" rule by granting 1 mana of each die's color to `PlayerTeamManager` (Before hook → overwrite pool → `ResourceUIUpdate` → HUD → After hook) and then fires `DisableDiceLaunch`. Nothing calls `StartTurn`/`EndTurn` yet.
+
+**`DiceBox.prefab`** (`Assets/_Project/Prefabs/`) is the self-contained box for the prototype scene: `DiceManager` on the root, the legacy `DiceRollingArea` nested as `Arena` (walls, camera rendering to `DiceCamera.renderTexture`, `DiceHolder` spawn point) and an `Overlay` canvas (sort order 10) whose `Panel` carries `DiceRollerController` and the `DiceRollCamera` RawImage. Place it far from the main camera (the integration test uses y = −500). It needs an `EventManager` alive before it is instantiated; `EventManager` runs at execution order −100 so scene order does not matter. `DiceRollerController` throws on drag while Idle and re-throws its `RerollSelection` while Settled.
 
 The **face-up result is decided by PhysX**, not by RNG, and the proposal keeps it that way: the player's drag-throw stays. Once dice settle, the face read becomes a **logical roll result**; modifiers (Nudge, Flip, Mirror, Loaded Dice) change that result and the die re-orients to show the new face. Lock means the die is not re-thrown. Randomness **outside** the throw (enemy intents, rewards, map) must go through one seeded service so runs are reproducible apart from the dice. `UnityEngine.Random` in `DiceManager` is cosmetic torque only and may stay unseeded.
 
@@ -110,7 +124,7 @@ The **face-up result is decided by PhysX**, not by RNG, and the proposal keeps i
 
 - `GameUtilities.Mana` wraps a `Dictionary`, which Unity cannot serialize, so `BaseSkill.m_manaCost` neither shows in the Inspector nor persists. Replace it when `BaseSkill` is trimmed to signature skills.
 - `PlayerTeamManager.UpdateResources` overwrites the mana pool with the incoming values rather than adding to them.
-- `DiceRollerController` and `PlayerTeamManager`/`ResourceManager` still register events with raw string literals; migrate to `GameEvents` when touched.
+- `PlayerTeamManager` and `ResourceManager` still register events with raw string literals; migrate to `GameEvents` when touched.
 - `UI_SkillMenu` is active at scene load, never hidden, and its four buttons have no `onClick` handlers.
 - The scene's `InputSystemUIInputModule` uses the Input System package's built-in `DefaultInputActions`, not `Assets/InputSystem_Actions.inputactions`. No gameplay code reads the project actions asset; all input is uGUI pointer events (`IPointerDown/Up/ClickHandler`).
 - `Assets/TextMesh Pro/Examples & Extras` and `Assets/TutorialInfo` are template leftovers, not game code.

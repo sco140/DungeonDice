@@ -15,8 +15,12 @@ namespace DungeonDice.Core
         public const string SetUpDice = "SetUpDice";
         /// <summary>UnityEngine.Vector3 drag vector (x, 0, y). Throw the active dice.</summary>
         public const string LaunchDice = "LaunchDice";
-        /// <summary>DungeonDice.Dice.RollCompletedEvent. Every active die has settled and been read.</summary>
+        /// <summary>DungeonDice.Dice.RelaunchRequest. Re-throw a subset of the settled dice (reroll).</summary>
+        public const string RelaunchDice = "RelaunchDice";
+        /// <summary>DungeonDice.Dice.RollCompletedEvent. Every thrown die has settled and been read.</summary>
         public const string RollCompleted = "RollCompleted";
+        /// <summary>DungeonDice.Dice.RollResult. A modifier changed one settled result; the die was re-oriented.</summary>
+        public const string RollResultModified = "RollResultModified";
 
         // --- Legacy mana loop (SampleScene) -----------------------------------------
         /// <summary>Event_ResourceUpdate. Request a change to the team mana pool.</summary>
