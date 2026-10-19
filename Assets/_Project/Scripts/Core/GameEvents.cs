@@ -17,6 +17,10 @@ namespace DungeonDice.Core
         public const string LaunchDice = "LaunchDice";
         /// <summary>DungeonDice.Dice.RelaunchRequest. Re-throw a subset of the settled dice (reroll).</summary>
         public const string RelaunchDice = "RelaunchDice";
+        /// <summary>int diceCount. Dice have just left the player's hand (throw or re-throw). Presentation only.</summary>
+        public const string DiceThrown = "DiceThrown";
+        /// <summary>DungeonDice.Dice.DiceBoxProfile. Swap the box's look and sound (combat vs. traversal).</summary>
+        public const string SetDiceBoxProfile = "SetDiceBoxProfile";
         /// <summary>DungeonDice.Dice.RollCompletedEvent. Every thrown die has settled and been read.</summary>
         public const string RollCompleted = "RollCompleted";
         /// <summary>DungeonDice.Dice.RollResult. A modifier changed one settled result; the die was re-oriented.</summary>

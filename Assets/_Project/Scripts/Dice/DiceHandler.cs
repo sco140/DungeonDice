@@ -33,6 +33,9 @@ namespace DungeonDice.Dice
         private DieDefinition m_definition;
 
         private Rigidbody m_cmpRigidBody;
+        private MeshRenderer m_renderer;
+        /// <summary>The prefab's material, restored when neither the die nor the profile supplies one.</summary>
+        private Material m_originalMaterial;
 
         public DieDefinition Definition
         {
@@ -54,6 +57,27 @@ namespace DungeonDice.Dice
                 Debug.LogError("DiceHandler::Awake - Rigid body component is not attached to the DiceHandler.");
                 enabled = false;
             }
+
+            m_renderer = GetComponentInChildren<MeshRenderer>();
+            if (m_renderer != null) m_originalMaterial = m_renderer.sharedMaterial;
+        }
+
+        /// <summary>
+        /// Skin the die: its definition's material if set, else <paramref name="fallback"/> (the box
+        /// profile's default die material), else the prefab's original material.
+        /// </summary>
+        public void ApplyVisual(Material fallback)
+        {
+            if (m_renderer == null) return;
+            var definitionMaterial = m_definition != null ? m_definition.visualMaterial : null;
+            m_renderer.sharedMaterial = ResolveMaterial(definitionMaterial, fallback, m_originalMaterial);
+        }
+
+        internal static Material ResolveMaterial(Material definitionMaterial, Material fallback, Material original)
+        {
+            if (definitionMaterial != null) return definitionMaterial;
+            if (fallback != null) return fallback;
+            return original;
         }
 
         public void LaunchDice(Vector3 launchForce, Vector3 torqueForce)

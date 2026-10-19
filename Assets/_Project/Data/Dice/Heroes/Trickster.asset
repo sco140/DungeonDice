@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: DungeonDice::DungeonDice.Dice.DieDefinition
   displayName: Trickster
   color: 3
-  visualMaterial: {fileID: 0}
+  visualMaterial: {fileID: 2100000, guid: 33b6ced65801d2543b6a4aab8808beda, type: 2}
   faces:
   - label: "Nudge \xB11"
     effects:

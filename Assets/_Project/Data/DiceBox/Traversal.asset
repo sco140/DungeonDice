@@ -1,0 +1,28 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1dcccb6ea9ed86b448f05d51ce94a9a2, type: 3}
+  m_Name: Traversal
+  m_EditorClassIdentifier: DungeonDice::DungeonDice.Dice.DiceBoxProfile
+  displayName: Traversal
+  floorMaterial: {fileID: 2100000, guid: 69d3d7f11e7fb984dbffcc5182ccd07d, type: 2}
+  wallMaterial: {fileID: 2100000, guid: d087b7792f588d74180096f56e5a406a, type: 2}
+  defaultDieMaterial: {fileID: 2100000, guid: cbff638bf8da3fd4e802669397794885, type: 2}
+  cameraLocalPosition: {x: 0, y: 36, z: -6}
+  cameraLocalEuler: {x: 75, y: 0, z: 0}
+  fieldOfView: 60
+  lightColor: {r: 0.7, g: 0.9, b: 1, a: 1}
+  lightIntensity: 1.2
+  lightRange: 60
+  overlayColor: {r: 0, g: 0.03, b: 0.08, a: 0.7}
+  throwClip: {fileID: 0}
+  settleClip: {fileID: 0}
+  volume: 1

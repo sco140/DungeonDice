@@ -74,8 +74,10 @@ Notes:
   ```
   `unity test . --mode EditMode|PlayMode` is the headless alternative for CI (exit 8 = tests failed; other non-zero = the run itself failed).
 - Authoring tools (menu **DungeonDice ▸ …**, or call the static method via `eval`), all re-runnable and GUID-preserving. Extend these rather than hand-editing `.asset`/`.prefab` files:
-  - `DiceAssetAuthoring.CreateAll()` rewrites the hero/traversal `DieDefinition` assets from the proposal tables.
-  - `DiceBoxPrefabAuthoring.CreateOrUpdate()` rebuilds `Assets/_Project/Prefabs/DiceBox.prefab` and pins `EventManager`'s Script Execution Order to −100.
+  - `DiceBoxProfileAuthoring.CreateAll()` creates the tray materials and the `Combat` / `Traversal` `DiceBoxProfile`s under `Assets/_Project/Data/DiceBox`.
+  - `DiceAssetAuthoring.CreateAll()` rewrites the hero/traversal `DieDefinition` assets from the proposal tables, including each die's skin (`Die_Yellow.mat` is a tinted copy of the pack's white die).
+  - `DiceBoxPrefabAuthoring.CreateOrUpdate()` rebuilds `Assets/_Project/Prefabs/DiceBox.prefab` (needs the Combat profile to exist first) and pins `EventManager`'s Script Execution Order to −100.
+  Run them in that order after a clean checkout. `AuthoringUtil` holds the shared folder/material helpers.
 - `eval` gotcha: the C# is passed through the shell in single quotes, so a `' '` char literal (or any apostrophe) splits the argument and the CLI reports bogus `--timeout` errors. Use `string.Empty.PadLeft(n)` or `" "` instead.
 - Build: `unity build . --target StandaloneWindows64` (nothing is configured for builds yet; only `SampleScene` is in Build Settings).
 
@@ -113,6 +115,8 @@ all active dice settled → DiceManager.CompleteRoll: restore gravity → RollCo
 Consumers subscribe to `RollCompleted`. In the legacy SampleScene the consumer is `GameManager`, which previews the "bank it" rule by granting 1 mana of each die's color to `PlayerTeamManager` (Before hook → overwrite pool → `ResourceUIUpdate` → HUD → After hook) and then fires `DisableDiceLaunch`. Nothing calls `StartTurn`/`EndTurn` yet.
 
 **`DiceBox.prefab`** (`Assets/_Project/Prefabs/`) is the self-contained box for the prototype scene: `DiceManager` on the root, the legacy `DiceRollingArea` nested as `Arena` (walls, camera rendering to `DiceCamera.renderTexture`, `DiceHolder` spawn point) and an `Overlay` canvas (sort order 10) whose `Panel` carries `DiceRollerController` and the `DiceRollCamera` RawImage. Place it far from the main camera (the integration test uses y = −500). It needs an `EventManager` alive before it is instantiated; `EventManager` runs at execution order −100 so scene order does not matter. `DiceRollerController` throws on drag while Idle and re-throws its `RerollSelection` while Settled.
+
+**Visual profiles.** `DiceBoxVisuals` (on the prefab root, beside `DiceManager`) applies a `DiceBoxProfile`: floor and wall materials, camera local position/rotation/FOV, the `BoxLight` point light, the overlay dim colour, optional throw/settle clips, and the fallback die material. Swap with `ApplyProfile` or the `SetDiceBoxProfile` event; the Combat profile is applied on Awake. Die skins resolve in order: `DieDefinition.visualMaterial`, then the profile's `defaultDieMaterial`, then the prefab's original material (`DiceHandler.ApplyVisual`). `DiceThrown` fires on every throw for presentation only. The legacy SampleScene has no `DiceBoxVisuals`, so `EventManager` logs "Event 'DiceThrown' was never registered" there; that warning is expected.
 
 The **face-up result is decided by PhysX**, not by RNG, and the proposal keeps it that way: the player's drag-throw stays. Once dice settle, the face read becomes a **logical roll result**; modifiers (Nudge, Flip, Mirror, Loaded Dice) change that result and the die re-orients to show the new face. Lock means the die is not re-thrown. Randomness **outside** the throw (enemy intents, rewards, map) must go through one seeded service so runs are reproducible apart from the dice. `UnityEngine.Random` in `DiceManager` is cosmetic torque only and may stay unseeded.
 

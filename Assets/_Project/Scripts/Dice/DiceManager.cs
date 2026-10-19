@@ -57,6 +57,8 @@ namespace DungeonDice.Dice
 
         private Vector3 m_defaultGravity;
         private bool m_gravityOverridden;
+        /// <summary>Optional sibling that supplies the fallback die material of the active profile.</summary>
+        private DiceBoxVisuals m_visuals;
 
         public DiceBoxState State { get; private set; } = DiceBoxState.Empty;
         /// <summary>The most recent completed roll, or null before the first completion of this setup.</summary>
@@ -88,6 +90,7 @@ namespace DungeonDice.Dice
             }
 
             m_defaultGravity = Physics.gravity;
+            m_visuals = GetComponent<DiceBoxVisuals>();
             DontDestroyOnLoad(gameObject);
             EventManager.Register(GameEvents.SetUpDice, new EventHandler<int>(SetUpDice));
             EventManager.Register(GameEvents.LaunchDice, new EventHandler<Vector3>(LaunchDice));
@@ -161,6 +164,7 @@ namespace DungeonDice.Dice
                 }
                 if (definitions != null && definitions[i] != null) handler.Definition = definitions[i];
                 handler.OwnerId = i;
+                handler.ApplyVisual(m_visuals != null && m_visuals.Profile != null ? m_visuals.Profile.defaultDieMaterial : null);
                 m_active.Add(handler);
 
                 if (die.TryGetComponent(out Rigidbody rb))
@@ -256,6 +260,7 @@ namespace DungeonDice.Dice
                 m_pending.Add(handler.OwnerId);
                 handler.LaunchDice(direction * force, Random.insideUnitSphere * m_launchTorqueStrength);
             }
+            EventManager.TriggerEvent(GameEvents.DiceThrown, dice.Count);
         }
 
         // ---------------------------------------------------------------- results

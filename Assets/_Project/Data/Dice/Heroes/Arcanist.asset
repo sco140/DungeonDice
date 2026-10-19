@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: DungeonDice::DungeonDice.Dice.DieDefinition
   displayName: Arcanist
   color: 2
-  visualMaterial: {fileID: 0}
+  visualMaterial: {fileID: 2100000, guid: 2a10483549764b84ea60530965daaf97, type: 2}
   faces:
   - label: Burn 2
     effects:

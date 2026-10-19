@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: DungeonDice::DungeonDice.Dice.DieDefinition
   displayName: High Road
   color: 0
-  visualMaterial: {fileID: 0}
+  visualMaterial: {fileID: 2100000, guid: cbff638bf8da3fd4e802669397794885, type: 2}
   faces:
   - label: 4
     effects:

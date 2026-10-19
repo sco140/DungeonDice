@@ -63,7 +63,8 @@ namespace DungeonDice.EditorTools
                 so.FindProperty("m_maxForce").floatValue = 100f;
                 so.ApplyModifiedPropertiesWithoutUndo();
 
-                BuildOverlay(root.transform, renderTexture);
+                var overlayDim = BuildOverlay(root.transform, renderTexture);
+                WireVisuals(root, areaInstance, overlayDim);
 
                 var saved = PrefabUtility.SaveAsPrefabAsset(root, PrefabPath, out bool success);
                 Debug.Log(success
@@ -90,8 +91,52 @@ namespace DungeonDice.EditorTools
             AssetDatabase.SaveAssets();
         }
 
-        /// <summary>Screen-space overlay: dim panel (drag surface) with the dice camera image inside it.</summary>
-        private static void BuildOverlay(Transform parent, RenderTexture renderTexture)
+        /// <summary>
+        /// Point light above the tray, an AudioSource, and <see cref="DiceBoxVisuals"/> wired to the
+        /// camera, floor, walls, light, audio and overlay, with the Combat profile as default.
+        /// </summary>
+        private static void WireVisuals(GameObject root, GameObject areaInstance, Image overlayDim)
+        {
+            var lightGo = new GameObject("BoxLight", typeof(Light));
+            lightGo.transform.SetParent(root.transform, false);
+            lightGo.transform.localPosition = new Vector3(0f, 13f, 0f); // just under the 15-unit ceiling
+            var light = lightGo.GetComponent<Light>();
+            light.type = LightType.Point;
+            light.shadows = LightShadows.None;
+            light.range = 60f;
+
+            var audio = root.AddComponent<AudioSource>();
+            audio.playOnAwake = false;
+            audio.spatialBlend = 0f; // UI-style, not positional: the box sits far from the listener
+
+            Renderer floor = null;
+            var walls = new System.Collections.Generic.List<Renderer>();
+            foreach (var renderer in areaInstance.GetComponentsInChildren<Renderer>())
+            {
+                if (renderer.name == "Floor") floor = renderer;
+                else walls.Add(renderer);
+            }
+
+            var visuals = root.AddComponent<DiceBoxVisuals>();
+            var so = new SerializedObject(visuals);
+            so.FindProperty("m_camera").objectReferenceValue = areaInstance.GetComponentInChildren<Camera>();
+            so.FindProperty("m_floor").objectReferenceValue = floor;
+            var wallsProp = so.FindProperty("m_walls");
+            wallsProp.arraySize = walls.Count;
+            for (int i = 0; i < walls.Count; i++) wallsProp.GetArrayElementAtIndex(i).objectReferenceValue = walls[i];
+            so.FindProperty("m_light").objectReferenceValue = light;
+            so.FindProperty("m_audio").objectReferenceValue = audio;
+            so.FindProperty("m_overlayDim").objectReferenceValue = overlayDim;
+
+            var combat = AssetDatabase.LoadAssetAtPath<DiceBoxProfile>(DiceBoxProfileAuthoring.CombatProfilePath);
+            if (combat == null)
+                Debug.LogWarning("DiceBoxPrefabAuthoring: Combat profile missing; run DungeonDice ▸ Author DiceBox Profiles first.");
+            so.FindProperty("m_defaultProfile").objectReferenceValue = combat;
+            so.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        /// <summary>Screen-space overlay: dim panel (drag surface) with the dice camera image inside it. Returns the dim image.</summary>
+        private static Image BuildOverlay(Transform parent, RenderTexture renderTexture)
         {
             var overlay = new GameObject("Overlay", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
             overlay.transform.SetParent(parent, false);
@@ -123,6 +168,7 @@ namespace DungeonDice.EditorTools
             var controller = panel.GetComponent<DiceRollerController>();
             controller.m_objDiceCameraPanel = view;
             controller.m_cBackgroundPanel = dim;
+            return dim;
         }
 
         private static void Stretch(RectTransform rt)

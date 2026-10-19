@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::BaseDice
   displayName: Legacy Red d6
   color: 1
-  visualMaterial: {fileID: 0}
+  visualMaterial: {fileID: 2100000, guid: ca1eda824ec216941b17f26ea3a0693f, type: 2}
   faces:
   - label: 1
     effects:

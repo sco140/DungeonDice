@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: DungeonDice::DungeonDice.Dice.DieDefinition
   displayName: Knight
   color: 1
-  visualMaterial: {fileID: 0}
+  visualMaterial: {fileID: 2100000, guid: 0711445adf5d30c40bd0eb92c9335290, type: 2}
   faces:
   - label: Strike 3
     effects:
