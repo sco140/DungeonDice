@@ -36,10 +36,12 @@ namespace DungeonDice.EditorTools
             var legacySkin = AssetDatabase.LoadAssetAtPath<Material>(RoughRedPath);
 
             // Hero dice (one color domain each). Values are placeholders for tuning.
+            // Physical face order matters: opposite faces (1-6, 2-5, 3-4) should differ so Flip always
+            // changes something. Knight: Strike 3 | Strike 5, Shield 4 | Taunt + Shield 2, Strike 3 | Shield 4.
             Upsert($"{HeroDir}/Knight.asset", "Knight", DieColor.Red, red,
                 F("Strike 3", E(FaceEffectKind.Strike, 3)),
-                F("Strike 3", E(FaceEffectKind.Strike, 3)),
                 F("Shield 4", E(FaceEffectKind.Shield, 4)),
+                F("Strike 3", E(FaceEffectKind.Strike, 3)),
                 F("Shield 4", E(FaceEffectKind.Shield, 4)),
                 F("Taunt + Shield 2", E(FaceEffectKind.Taunt), E(FaceEffectKind.Shield, 2)),
                 F("Strike 5", E(FaceEffectKind.Strike, 5)));

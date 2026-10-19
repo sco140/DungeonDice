@@ -70,6 +70,8 @@ namespace DungeonDice.Combat
         public event Action<int, IDieModifier> DieModified;
         /// <summary>Reroll-ally: the box should re-throw this slot's die.</summary>
         public event Action<int> AllyRerollRequested;
+        /// <summary>Something visible happened to a unit (damage, heal, shield, status); renderers animate from this.</summary>
+        public event Action<CombatEvent> UnitEvent;
 
         public CombatState(IEnumerable<HeroRunState> party, IEnumerable<EnemyDefinition> enemies, RollService rng)
         {
@@ -235,11 +237,13 @@ namespace DungeonDice.Combat
                     if (ally == null || !ally.IsAlive) { reason = "no such ally"; return false; }
                     ally.Shield += entry.value;
                     Say($"{hero.Name} shields {(ally == hero ? "themself" : ally.Name)} for {entry.value}.");
+                    Emit(CombatEvent.Hero(CombatEventKind.Shield, ally.Slot, entry.value));
                     return true;
                 }
                 case FaceEffectKind.Taunt:
                     hero.Statuses.Set(StatusKind.Taunt, 1);
                     Say($"{hero.Name} taunts: enemy attacks go to them this turn.");
+                    Emit(CombatEvent.Hero(CombatEventKind.Status, hero.Slot, 1, "Taunt"));
                     return true;
 
                 case FaceEffectKind.Burn:
@@ -250,6 +254,7 @@ namespace DungeonDice.Combat
                     var kind = entry.kind == FaceEffectKind.Burn ? StatusKind.Burn : StatusKind.Poison;
                     enemy.Statuses.Add(kind, entry.value);
                     Say($"{hero.Name} applies {kind} {entry.value} to {enemy.Name} (now {enemy.Statuses.Get(kind)}).");
+                    Emit(CombatEvent.Enemy(CombatEventKind.Status, enemy.Index, entry.value, kind.ToString()));
                     return true;
                 }
                 case FaceEffectKind.Weaken:
@@ -260,6 +265,7 @@ namespace DungeonDice.Combat
                     var kind = entry.kind == FaceEffectKind.Weaken ? StatusKind.Weaken : StatusKind.Hex;
                     enemy.Statuses.Set(kind, Math.Max(1, entry.value));
                     Say($"{hero.Name} {(kind == StatusKind.Weaken ? "weakens" : "hexes")} {enemy.Name}.");
+                    Emit(CombatEvent.Enemy(CombatEventKind.Status, enemy.Index, 1, kind.ToString()));
                     return true;
                 }
                 case FaceEffectKind.Nudge:
@@ -267,6 +273,11 @@ namespace DungeonDice.Combat
                 {
                     var targetDie = TargetableDie(target, out reason);
                     if (targetDie == null) return false;
+                    if (targetDie.Slot == hero.Slot)
+                    {
+                        reason = "needs another hero's die"; // Trickster faces bend other dice, never their own
+                        return false;
+                    }
                     IDieModifier modifier = entry.kind == FaceEffectKind.Nudge
                         ? new NudgeModifier(Math.Max(1, entry.value) * (nudgeDelta >= 0 ? 1 : -1)) // face value is the magnitude; upgrades can raise it
                         : new FlipModifier();
@@ -356,7 +367,11 @@ namespace DungeonDice.Combat
             switch (kind)
             {
                 case SignatureKind.Bulwark:
-                    foreach (var ally in LivingHeroes) ally.Shield += 6;
+                    foreach (var ally in LivingHeroes)
+                    {
+                        ally.Shield += 6;
+                        Emit(CombatEvent.Hero(CombatEventKind.Shield, ally.Slot, 6));
+                    }
                     Say($"{hero.Name} casts {name}: Shield 6 to all allies.");
                     break;
 
@@ -409,6 +424,8 @@ namespace DungeonDice.Combat
                 int lost = enemy.LoseHealth(burn);
                 enemy.Statuses.Set(StatusKind.Burn, burn - 1);
                 Say($"{enemy.Name} burns for {lost}.");
+                Emit(CombatEvent.Enemy(CombatEventKind.Damage, enemy.Index, lost, "Burn"));
+                if (!enemy.IsAlive) Emit(CombatEvent.Enemy(CombatEventKind.Death, enemy.Index, 0));
             }
 
             // Intents.
@@ -424,21 +441,30 @@ namespace DungeonDice.Combat
                     {
                         var target = PickAttackTarget();
                         if (target == null) break;
-                        int dealt = target.TakeDamage(Math.Max(0, intent.value - weaken));
-                        Say($"{enemy.Name} attacks {target.Name} for {intent.value - weaken}{(dealt < intent.value - weaken ? $" ({dealt} through shield)" : "")}.{(target.IsAlive ? "" : $" {target.Name} falls!")}");
+                        int incoming = Math.Max(0, intent.value - weaken);
+                        int dealt = target.TakeDamage(incoming);
+                        Say($"{enemy.Name} attacks {target.Name} for {incoming}{(dealt < incoming ? $" ({dealt} through shield)" : "")}.{(target.IsAlive ? "" : $" {target.Name} falls!")}");
+                        Emit(CombatEvent.Hero(CombatEventKind.Damage, target.Slot, dealt, dealt < incoming ? "absorbed" : null));
+                        if (!target.IsAlive) Emit(CombatEvent.Hero(CombatEventKind.Death, target.Slot, 0));
                         break;
                     }
                     case IntentKind.AttackAll:
                         foreach (var target in LivingHeroes.ToList())
                         {
-                            target.TakeDamage(Math.Max(0, intent.value - weaken));
-                            if (!target.IsAlive) Say($"{target.Name} falls!");
+                            int dealt = target.TakeDamage(Math.Max(0, intent.value - weaken));
+                            Emit(CombatEvent.Hero(CombatEventKind.Damage, target.Slot, dealt));
+                            if (!target.IsAlive)
+                            {
+                                Say($"{target.Name} falls!");
+                                Emit(CombatEvent.Hero(CombatEventKind.Death, target.Slot, 0));
+                            }
                         }
                         Say($"{enemy.Name} attacks everyone for {intent.value - weaken}.");
                         break;
                     case IntentKind.Block:
                         enemy.Shield += intent.value;
                         Say($"{enemy.Name} blocks for {intent.value}.");
+                        Emit(CombatEvent.Enemy(CombatEventKind.Shield, enemy.Index, intent.value));
                         break;
                 }
             }
@@ -447,7 +473,13 @@ namespace DungeonDice.Combat
             foreach (var enemy in LivingEnemies.ToList())
             {
                 int poison = enemy.Statuses.Get(StatusKind.Poison);
-                if (poison > 0) Say($"{enemy.Name} suffers {enemy.LoseHealth(poison)} poison.");
+                if (poison > 0)
+                {
+                    int lost = enemy.LoseHealth(poison);
+                    Say($"{enemy.Name} suffers {lost} poison.");
+                    Emit(CombatEvent.Enemy(CombatEventKind.Damage, enemy.Index, lost, "Poison"));
+                    if (!enemy.IsAlive) Emit(CombatEvent.Enemy(CombatEventKind.Death, enemy.Index, 0));
+                }
                 enemy.Statuses.Remove(StatusKind.Weaken);
                 enemy.Statuses.Remove(StatusKind.Hex);
             }
@@ -503,7 +535,67 @@ namespace DungeonDice.Combat
         private int DamageEnemy(CombatEnemy enemy, int amount)
         {
             if (enemy.Statuses.Has(StatusKind.Hex)) amount += 1;
-            return enemy.TakeDamage(amount);
+            int dealt = enemy.TakeDamage(amount);
+            Emit(CombatEvent.Enemy(CombatEventKind.Damage, enemy.Index, dealt, dealt < amount ? "absorbed" : null));
+            if (!enemy.IsAlive) Emit(CombatEvent.Enemy(CombatEventKind.Death, enemy.Index, 0));
+            return dealt;
+        }
+
+        private void Emit(CombatEvent evt) => UnitEvent?.Invoke(evt);
+
+        // ---------------------------------------------------------------- previews (what a modifier would do)
+
+        /// <summary>
+        /// The face <paramref name="targetSlot"/>'s die would show if <paramref name="modifier"/> were applied,
+        /// without applying it. Null if the die cannot be targeted.
+        /// </summary>
+        public DieFace PreviewModifier(int targetSlot, IDieModifier modifier)
+        {
+            var die = TargetableDie(targetSlot, out _);
+            if (die == null || modifier == null) return null;
+            var scratch = new RollResult(die.Result.Die, die.Result.FaceIndex);
+            scratch.Apply(modifier);
+            return scratch.Face;
+        }
+
+        /// <summary>What using <paramref name="actingSlot"/>'s die on <paramref name="targetSlot"/>'s die would produce, as "Face → Face".</summary>
+        public string PreviewDieAction(int actingSlot, int targetSlot, int nudgeDelta = 1)
+        {
+            var acting = Die(actingSlot);
+            var target = TargetableDie(targetSlot, out _);
+            if (acting == null || target == null || targetSlot == actingSlot) return null;
+            var kind = acting.Face.effects.Length > 0 ? acting.Face.effects[0].kind : FaceEffectKind.Fizzle;
+            switch (kind)
+            {
+                case FaceEffectKind.Nudge:
+                {
+                    int magnitude = Math.Max(1, acting.Face.effects[0].value) * (nudgeDelta >= 0 ? 1 : -1);
+                    return Arrow(target.Face, PreviewModifier(targetSlot, new NudgeModifier(magnitude)));
+                }
+                case FaceEffectKind.Flip:
+                    return Arrow(target.Face, PreviewModifier(targetSlot, new FlipModifier()));
+                case FaceEffectKind.Mirror:
+                    return targetSlot == actingSlot ? null : $"{acting.Face} → copy of {target.Face}";
+                case FaceEffectKind.RerollAlly:
+                    return targetSlot == actingSlot ? null : $"re-throw {target.Face}";
+                default:
+                    return null;
+            }
+        }
+
+        /// <summary>Loaded Dice preview: "Face → Face" for setting the target die to <paramref name="faceIndex"/>.</summary>
+        public string PreviewLoadedDice(int targetSlot, int faceIndex)
+        {
+            var target = TargetableDie(targetSlot, out _);
+            if (target == null || !DieDefinition.IsValidFaceIndex(faceIndex)) return null;
+            return Arrow(target.Face, target.Result.Die.GetFace(faceIndex));
+        }
+
+        private static string Arrow(DieFace before, DieFace after)
+        {
+            if (after == null) return null;
+            bool same = before != null && before.ToString() == after.ToString();
+            return same ? $"{before} → {after} (no change)" : $"{before} → {after}";
         }
 
         private void CheckVictory()

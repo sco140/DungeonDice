@@ -61,7 +61,7 @@ namespace DungeonDice.EditorTools
                 "Knight" => new List<FaceUpgrade>
                 {
                     U(1, "Strike 4", E(FaceEffectKind.Strike, 4)),
-                    U(3, "Shield 5", E(FaceEffectKind.Shield, 5)),
+                    U(2, "Shield 5", E(FaceEffectKind.Shield, 5)),
                     U(5, "Taunt + Shield 4", E(FaceEffectKind.Taunt), E(FaceEffectKind.Shield, 4)),
                 },
                 "Arcanist" => new List<FaceUpgrade>

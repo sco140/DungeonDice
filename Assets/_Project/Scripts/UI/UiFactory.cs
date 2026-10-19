@@ -148,6 +148,70 @@ namespace DungeonDice.UI
             return layout;
         }
 
+        /// <summary>A square icon. Null sprite → an empty rect of the same size, so layouts stay stable.</summary>
+        public static Image Icon(Transform parent, string name, Sprite sprite, float size = 28f, Color? tint = null)
+        {
+            var go = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(LayoutElement));
+            go.transform.SetParent(parent, false);
+            var image = go.GetComponent<Image>();
+            image.sprite = sprite;
+            image.color = sprite != null ? (tint ?? Color.white) : Color.clear;
+            image.preserveAspect = true;
+            image.raycastTarget = false;
+            var layout = go.GetComponent<LayoutElement>();
+            layout.preferredWidth = size;
+            layout.preferredHeight = size;
+            layout.minWidth = size;
+            layout.flexibleWidth = 0f;
+            layout.flexibleHeight = 0f;
+            return image;
+        }
+
+        /// <summary>A row of [icon] [text], left-aligned, one line tall.</summary>
+        public static TMP_Text IconLabel(Transform parent, string name, Sprite sprite, string text, float fontSize = 20f, float iconSize = 26f,
+            Color? textColor = null, Color? iconTint = null, TextAlignmentOptions alignment = TextAlignmentOptions.MidlineLeft)
+        {
+            var row = Group(parent, name);
+            var group = Horizontal(row, spacing: 8f, padding: 0, align: TextAnchor.MiddleLeft, expandChildren: false);
+            group.childForceExpandHeight = false;
+            FixedHeight(row, Mathf.Max(iconSize, fontSize * 1.4f));
+            Icon(row, "Icon", sprite, iconSize, iconTint);
+            var label = Label(row, "Text", text, fontSize, alignment, textColor);
+            var layout = label.gameObject.AddComponent<LayoutElement>();
+            layout.flexibleWidth = 1f;
+            return label;
+        }
+
+        /// <summary>A horizontal bar: dark track, coloured fill, optional second fill (shield) drawn on top from the left.</summary>
+        public static BarView Bar(Transform parent, string name, Color fill, float height = 18f)
+        {
+            var track = Panel(parent, name, new Color(0.08f, 0.08f, 0.09f, 1f), stretch: false);
+            FixedHeight(track, height);
+            var fillRt = Panel(track, "Fill", fill);
+            fillRt.anchorMin = Vector2.zero;
+            fillRt.anchorMax = new Vector2(1f, 1f);
+            fillRt.offsetMin = new Vector2(2f, 2f);
+            fillRt.offsetMax = new Vector2(-2f, -2f);
+            var fillImage = fillRt.GetComponent<Image>();
+            fillImage.type = Image.Type.Filled;
+            fillImage.fillMethod = Image.FillMethod.Horizontal;
+            fillImage.fillOrigin = 0;
+            var shieldRt = Panel(track, "Shield", new Color(0.75f, 0.85f, 1f, 0.85f));
+            shieldRt.anchorMin = Vector2.zero;
+            shieldRt.anchorMax = new Vector2(1f, 1f);
+            shieldRt.offsetMin = new Vector2(2f, 2f);
+            shieldRt.offsetMax = new Vector2(-2f, -2f);
+            var shieldImage = shieldRt.GetComponent<Image>();
+            shieldImage.type = Image.Type.Filled;
+            shieldImage.fillMethod = Image.FillMethod.Horizontal;
+            shieldImage.fillOrigin = 0;
+            var text = Label(track, "Text", "", height * 0.8f, TextAlignmentOptions.Center, TextLight);
+            Stretch(text.rectTransform);
+            var view = track.gameObject.AddComponent<BarView>();
+            view.Bind(fillImage, shieldImage, text);
+            return view;
+        }
+
         public static void DestroyChildren(Transform parent)
         {
             for (int i = parent.childCount - 1; i >= 0; i--)

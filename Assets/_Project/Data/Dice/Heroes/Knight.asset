@@ -20,14 +20,14 @@ MonoBehaviour:
     effects:
     - kind: 1
       value: 3
-  - label: Strike 3
-    effects:
-    - kind: 1
-      value: 3
   - label: Shield 4
     effects:
     - kind: 2
       value: 4
+  - label: Strike 3
+    effects:
+    - kind: 1
+      value: 3
   - label: Shield 4
     effects:
     - kind: 2

@@ -12,16 +12,32 @@ using UnityEngine.UI;
 namespace DungeonDice.UI
 {
     /// <summary>
-    /// Renders a <see cref="CombatState"/> and drives the dice box for it. Enemy cards show HP,
-    /// shield, statuses and the telegraphed intent; hero cards show HP, shield, the settled die and
-    /// Use / Bank / signature buttons. Throws and re-throws are real drags in the box; the overlay
-    /// closes once the dice settle so the player can act on the cards.
+    /// Renders a <see cref="CombatState"/> and drives the dice box for it. Unit cards are built once
+    /// per fight and updated in place (health bars, status icons, intent), so hit flashes and floating
+    /// numbers from <see cref="CombatState.UnitEvent"/> can play on them. Throws and re-throws are real
+    /// drags in the box; the overlay closes once the dice settle so the player can act on the cards.
+    /// Targeting a die shows what each candidate would become.
     /// </summary>
     public class CombatScreen : MonoBehaviour
     {
+        /// <summary>One hero or enemy card: fixed parts updated in place, a Body rebuilt on refresh.</summary>
+        private sealed class UnitCard
+        {
+            public Button Button;
+            public Image Image;
+            public CardFlash Flash;
+            public TMP_Text Name;
+            public BarView Bar;
+            public RectTransform StatusRow;
+            public RectTransform Body;
+            public Color BaseColor;
+        }
+
         private CombatState m_state;
         private readonly List<int> m_ownerToSlot = new();
         private readonly HashSet<int> m_rerollSelection = new();
+        private readonly Dictionary<int, UnitCard> m_heroCards = new();
+        private readonly Dictionary<int, UnitCard> m_enemyCards = new();
         private bool m_built;
         private bool m_waitingForThrow;
 
@@ -32,12 +48,14 @@ namespace DungeonDice.UI
         private int m_nudgeDelta = 1;
         private int m_loadedFace;
 
-        private TMP_Text m_title, m_hint, m_mana, m_log;
-        private RectTransform m_enemyRow, m_heroRow, m_actions;
+        private TMP_Text m_title, m_hint, m_log;
+        private RectTransform m_enemyRow, m_heroRow, m_actions, m_manaRow;
 
         public CombatState State => m_state;
         public IReadOnlyList<int> OwnerToSlot => m_ownerToSlot;
         public bool WaitingForThrow => m_waitingForThrow;
+
+        private static IconLibrary Icons => RunController.CurrentIcons;
 
         // ---------------------------------------------------------------- lifecycle
 
@@ -77,9 +95,11 @@ namespace DungeonDice.UI
             m_state.Changed += Refresh;
             m_state.DieModified += OnDieModified;
             m_state.AllyRerollRequested += OnAllyRerollRequested;
+            m_state.UnitEvent += OnUnitEvent;
 
             if (run.CombatProfile != null) EventManager.TriggerEvent(GameEvents.SetDiceBoxProfile, run.CombatProfile);
             m_title.text = $"{node.name}  <size=60%>({node.type})</size>";
+            BuildCards();
             BeginThrow();
         }
 
@@ -89,6 +109,7 @@ namespace DungeonDice.UI
             m_state.Changed -= Refresh;
             m_state.DieModified -= OnDieModified;
             m_state.AllyRerollRequested -= OnAllyRerollRequested;
+            m_state.UnitEvent -= OnUnitEvent;
             m_state = null;
             m_waitingForThrow = false;
             ClearTargeting();
@@ -96,7 +117,6 @@ namespace DungeonDice.UI
 
         // ---------------------------------------------------------------- dice box
 
-        /// <summary>Put the living heroes' dice in the box and open it for the throw.</summary>
         private void BeginThrow()
         {
             var dice = m_state.DiceToThrow(out var slots);
@@ -123,10 +143,9 @@ namespace DungeonDice.UI
 
         private int OwnerFor(int slot) => m_ownerToSlot.IndexOf(slot);
 
-        private DiceRollerController Roller() =>
+        private static DiceRollerController Roller() =>
             DiceManager.Instance != null ? DiceManager.Instance.GetComponentInChildren<DiceRollerController>(true) : null;
 
-        /// <summary>Reroll phase: open the box with the selected dice armed for re-throw; the player drags.</summary>
         public void RerollSelected()
         {
             if (m_state == null || !m_state.CanReroll || m_rerollSelection.Count == 0) return;
@@ -164,8 +183,33 @@ namespace DungeonDice.UI
             int owner = OwnerFor(slot);
             var die = m_state.Die(slot);
             if (owner < 0 || die == null || DiceManager.Instance == null) return;
-            var handler = DiceManager.Instance.ActiveDice.FirstOrDefault(d => d.OwnerId == owner);
-            handler?.ShowFace(die.Result.FaceIndex);
+            DiceManager.Instance.ActiveDice.FirstOrDefault(d => d.OwnerId == owner)?.ShowFace(die.Result.FaceIndex);
+            if (m_heroCards.TryGetValue(slot, out var card)) card.Flash.Play(die.Face.ToString(), UiFactory.Accent, 0.9f);
+        }
+
+        /// <summary>Flash the card and float a number for damage, shield, status and death.</summary>
+        private void OnUnitEvent(CombatEvent evt)
+        {
+            var cards = evt.TargetIsEnemy ? m_enemyCards : m_heroCards;
+            if (!cards.TryGetValue(evt.Target, out var card)) return;
+            switch (evt.Kind)
+            {
+                case CombatEventKind.Damage:
+                    card.Flash.Play(evt.Amount > 0 ? $"-{evt.Amount}" : "Blocked", evt.Amount > 0 ? CardFlash.DamageColor : CardFlash.ShieldColor);
+                    break;
+                case CombatEventKind.Heal:
+                    card.Flash.Play($"+{evt.Amount}", CardFlash.HealColor);
+                    break;
+                case CombatEventKind.Shield:
+                    card.Flash.Play($"+{evt.Amount} shield", CardFlash.ShieldColor);
+                    break;
+                case CombatEventKind.Status:
+                    card.Flash.Play(evt.Detail ?? "Status", UiFactory.Accent);
+                    break;
+                case CombatEventKind.Death:
+                    card.Flash.Play(evt.TargetIsEnemy ? "Defeated" : "Fallen", CardFlash.DamageColor, 1.2f);
+                    break;
+            }
         }
 
         // ---------------------------------------------------------------- player actions (public for tests)
@@ -174,9 +218,6 @@ namespace DungeonDice.UI
         {
             if (m_state == null || !m_state.CanAct(slot)) return;
             var kind = m_state.TargetFor(slot);
-            var face = m_state.Die(slot).Face;
-            bool isNudge = face.Has(FaceEffectKind.Nudge);
-
             switch (kind)
             {
                 case TargetKind.None:
@@ -189,7 +230,7 @@ namespace DungeonDice.UI
                     else BeginTargeting(slot, TargetKind.Enemy, false);
                     break;
                 case TargetKind.Die:
-                    if (isNudge) m_nudgeDelta = 1;
+                    m_nudgeDelta = 1;
                     BeginTargeting(slot, TargetKind.Die, false);
                     break;
             }
@@ -281,7 +322,7 @@ namespace DungeonDice.UI
             Refresh();
         }
 
-        // ---------------------------------------------------------------- build & refresh
+        // ---------------------------------------------------------------- build
 
         private void Build()
         {
@@ -295,13 +336,15 @@ namespace DungeonDice.UI
 
             m_enemyRow = UiFactory.Group(background, "Enemies");
             UiFactory.Horizontal(m_enemyRow, spacing: 16f, padding: 0);
-            UiFactory.FixedHeight(m_enemyRow, 150f);
+            UiFactory.FixedHeight(m_enemyRow, 190f);
 
-            m_mana = UiFactory.Label(background, "Mana", "", 24f, preferredHeight: 34f);
+            m_manaRow = UiFactory.Group(background, "Mana");
+            UiFactory.Horizontal(m_manaRow, spacing: 24f, padding: 0, align: TextAnchor.MiddleCenter, expandChildren: false);
+            UiFactory.FixedHeight(m_manaRow, 40f);
 
             m_heroRow = UiFactory.Group(background, "Heroes");
             UiFactory.Horizontal(m_heroRow, spacing: 16f, padding: 0);
-            UiFactory.FixedHeight(m_heroRow, 260f);
+            UiFactory.FixedHeight(m_heroRow, 330f);
 
             m_actions = UiFactory.Group(background, "Actions");
             UiFactory.Horizontal(m_actions, spacing: 12f, padding: 0, align: TextAnchor.MiddleLeft, expandChildren: false);
@@ -313,26 +356,195 @@ namespace DungeonDice.UI
             UiFactory.Stretch(m_log.rectTransform, 10f);
         }
 
+        /// <summary>Cards are per fight: enemies differ per node and heroes may have died.</summary>
+        private void BuildCards()
+        {
+            UiFactory.DestroyChildren(m_enemyRow);
+            UiFactory.DestroyChildren(m_heroRow);
+            m_enemyCards.Clear();
+            m_heroCards.Clear();
+
+            foreach (var enemy in m_state.Enemies)
+            {
+                int index = enemy.Index;
+                var card = BuildCard(m_enemyRow, $"Enemy{index}", enemy.Name, new Color(0.3f, 0.12f, 0.12f, 1f), () => ChooseTarget(index));
+                card.Bar.SetColor(new Color(0.8f, 0.25f, 0.2f));
+                m_enemyCards[index] = card;
+            }
+            foreach (var hero in m_state.Heroes)
+            {
+                int slot = hero.Slot;
+                var card = BuildCard(m_heroRow, $"Hero{slot}", hero.Name, HeroTint(hero.Color), () => ChooseTarget(slot));
+                card.Bar.SetColor(new Color(0.35f, 0.8f, 0.4f));
+                m_heroCards[slot] = card;
+            }
+        }
+
+        private UnitCard BuildCard(Transform row, string name, string title, Color tint, System.Action onClick)
+        {
+            var button = UiFactory.Button(row, name, "", onClick, tint, 18f, 200f);
+            var old = button.GetComponentInChildren<TMP_Text>();
+            if (old != null) Destroy(old.gameObject);
+            var column = UiFactory.Group(button.transform, "Column");
+            UiFactory.Stretch(column, 8f);
+            UiFactory.Vertical(column, spacing: 4f, padding: 6, controlHeight: true);
+
+            var card = new UnitCard
+            {
+                Button = button,
+                Image = button.GetComponent<Image>(),
+                Flash = button.gameObject.AddComponent<CardFlash>(),
+                BaseColor = tint,
+            };
+            card.Name = UiFactory.Label(column, "Name", title, 24f);
+            card.Bar = UiFactory.Bar(column, "Health", Color.green, 20f);
+            card.StatusRow = UiFactory.Group(column, "Statuses");
+            UiFactory.Horizontal(card.StatusRow, spacing: 4f, padding: 0, align: TextAnchor.MiddleCenter, expandChildren: false);
+            UiFactory.FixedHeight(card.StatusRow, 26f);
+            card.Body = UiFactory.Group(column, "Body");
+            UiFactory.Vertical(card.Body, spacing: 4f, padding: 0, controlHeight: true);
+            card.Flash.SetBaseColor(tint);
+            return card;
+        }
+
+        // ---------------------------------------------------------------- refresh
+
         private void Refresh()
         {
             if (!m_built || m_state == null) return;
             var state = m_state;
 
-            m_mana.text = $"Mana   <color=#d04040>Red {state.Red}</color>   <color=#4070d0>Blue {state.Blue}</color>   <color=#d0b040>Yellow {state.Yellow}</color>     Turn {state.Turn}";
-            m_log.text = string.Join("\n", state.Log.Skip(Mathf.Max(0, state.Log.Count - 9)));
-
-            BuildEnemyCards(state);
-            BuildHeroCards(state);
+            RefreshMana(state);
+            m_log.text = string.Join("\n", state.Log.Skip(Mathf.Max(0, state.Log.Count - 8)));
+            foreach (var enemy in state.Enemies) RefreshEnemyCard(state, enemy);
+            foreach (var hero in state.Heroes) RefreshHeroCard(state, hero);
             BuildActions(state);
             m_hint.text = HintText(state);
+        }
+
+        private void RefreshMana(CombatState state)
+        {
+            UiFactory.DestroyChildren(m_manaRow);
+            UiFactory.Label(m_manaRow, "Label", "Mana", 22f, TextAlignmentOptions.MidlineRight, UiFactory.TextDim).gameObject.AddComponent<LayoutElement>().preferredWidth = 80f;
+            foreach (var color in new[] { DieColor.Red, DieColor.Blue, DieColor.Yellow })
+            {
+                var cell = UiFactory.Group(m_manaRow, color.ToString());
+                UiFactory.Horizontal(cell, spacing: 4f, padding: 0, align: TextAnchor.MiddleLeft, expandChildren: false);
+                cell.gameObject.AddComponent<LayoutElement>().preferredWidth = 110f;
+                UiFactory.Icon(cell, "Icon", Icons?.mana, 26f, IconLibrary.ManaColor(color));
+                UiFactory.Label(cell, "Count", $"{state.Mana(color)}", 24f, TextAlignmentOptions.MidlineLeft, IconLibrary.ManaColor(color));
+            }
+            UiFactory.Label(m_manaRow, "Turn", $"Turn {state.Turn}", 22f, TextAlignmentOptions.MidlineLeft, UiFactory.TextDim).gameObject.AddComponent<LayoutElement>().preferredWidth = 120f;
+        }
+
+        private void RefreshEnemyCard(CombatState state, CombatEnemy enemy)
+        {
+            var card = m_enemyCards[enemy.Index];
+            bool targeting = m_pendingSlot >= 0 && m_pendingKind == TargetKind.Enemy;
+            var tint = !enemy.IsAlive ? UiFactory.PanelLocked : targeting ? UiFactory.Accent : card.BaseColor;
+            card.Flash.SetBaseColor(tint);
+            card.Button.interactable = targeting && enemy.IsAlive;
+            card.Bar.Set(enemy.Health, enemy.MaxHealth, enemy.Shield);
+            RefreshStatuses(card.StatusRow, enemy.Statuses);
+
+            UiFactory.DestroyChildren(card.Body);
+            if (!enemy.IsAlive)
+            {
+                UiFactory.Label(card.Body, "Dead", "Defeated", 22f, color: UiFactory.TextDim);
+                return;
+            }
+            if (enemy.Intent != null)
+                UiFactory.IconLabel(card.Body, "Intent", Icons?.ForIntent(enemy.Intent.kind), $"Next: {enemy.Intent.Describe()}", 20f, 28f, UiFactory.Accent, UiFactory.Accent, TextAlignmentOptions.Midline);
+            if (targeting)
+                UiFactory.Label(card.Body, "Target", "Click to target", 18f, color: Color.black);
+        }
+
+        private void RefreshHeroCard(CombatState state, CombatHero hero)
+        {
+            int slot = hero.Slot;
+            var card = m_heroCards[slot];
+            var die = state.Die(slot);
+            bool targetingDie = m_pendingSlot >= 0 && m_pendingKind == TargetKind.Die;
+            bool canBeTarget = targetingDie && die != null && !die.Spent && hero.IsAlive && (m_pendingIsSignature || slot != m_pendingSlot);
+            var tint = !hero.IsAlive ? UiFactory.PanelLocked : canBeTarget ? UiFactory.Accent : card.BaseColor;
+            card.Flash.SetBaseColor(tint);
+            card.Button.interactable = canBeTarget;
+            card.Bar.Set(hero.Health, hero.MaxHealth, hero.Shield);
+            RefreshStatuses(card.StatusRow, hero.Statuses);
+
+            var body = card.Body;
+            UiFactory.DestroyChildren(body);
+            if (!hero.IsAlive)
+            {
+                UiFactory.Label(body, "Dead", "Fallen", 22f, color: UiFactory.TextDim);
+                return;
+            }
+
+            // The die: icon + face, greyed once spent.
+            string dieText = die == null ? "No die yet" : die.Spent ? $"{die.Face}  ({(die.Used ? "used" : "banked")})" : die.Face.ToString();
+            var dieLabel = UiFactory.IconLabel(body, "Die", die != null ? Icons?.ForFace(die.Face) : null, dieText, 20f, 30f,
+                die != null && die.Spent ? UiFactory.TextDim : UiFactory.TextLight, die != null && die.Spent ? UiFactory.TextDim : Color.white, TextAlignmentOptions.Midline);
+            if (die != null && die.MirroredFace != null) dieLabel.text += " (mirrored)";
+
+            if (die == null || die.Spent) return;
+
+            // Targeting preview: what this die would become.
+            if (canBeTarget)
+            {
+                string preview = m_pendingIsSignature ? state.PreviewLoadedDice(slot, m_loadedFace) : state.PreviewDieAction(m_pendingSlot, slot, m_nudgeDelta);
+                UiFactory.Label(body, "Preview", preview ?? "Click to target", 18f, color: Color.black);
+                return;
+            }
+
+            if (state.Phase == CombatPhase.Reroll && !m_waitingForThrow)
+            {
+                bool selected = m_rerollSelection.Contains(slot);
+                UiFactory.Button(body, "RerollToggle", selected ? "Re-throw: yes" : "Re-throw: no", () => ToggleRerollDie(slot), selected ? UiFactory.Accent : UiFactory.PanelDark, 16f, 36f);
+            }
+            else if (state.Phase == CombatPhase.Act && m_pendingSlot < 0 && state.PendingAllyReroll < 0)
+            {
+                var buttons = UiFactory.Group(body, "Buttons");
+                UiFactory.Horizontal(buttons, spacing: 6f, padding: 0);
+                UiFactory.FixedHeight(buttons, 36f);
+                if (die.Face.Has(FaceEffectKind.Nudge))
+                {
+                    UiFactory.Button(buttons, "NudgeUp", "Nudge +", () => UseNudge(slot, 1), UiFactory.PanelDark, 16f, 36f);
+                    UiFactory.Button(buttons, "NudgeDown", "Nudge −", () => UseNudge(slot, -1), UiFactory.PanelDark, 16f, 36f);
+                }
+                else
+                {
+                    UiFactory.Button(buttons, "Use", $"Use {die.Face}", () => Use(slot), UiFactory.PanelDark, 16f, 36f);
+                }
+                UiFactory.Button(buttons, "Bank", $"Bank (+1 {hero.Color})", () => Bank(slot), UiFactory.PanelDark, 16f, 36f);
+
+                var definition = hero.Run.Definition;
+                if (definition.signatureKind != SignatureKind.None)
+                {
+                    var sig = UiFactory.Button(body, "Signature", $"{definition.signatureName} (3 {hero.Color})", () => CastSignature(slot), UiFactory.PanelDark, 16f, 34f);
+                    sig.interactable = state.CanCastSignature(slot);
+                }
+            }
+        }
+
+        private void RefreshStatuses(RectTransform row, StatusSet statuses)
+        {
+            UiFactory.DestroyChildren(row);
+            foreach (var (kind, stacks) in statuses.All)
+            {
+                var cell = UiFactory.Group(row, kind.ToString());
+                UiFactory.Horizontal(cell, spacing: 2f, padding: 0, align: TextAnchor.MiddleLeft, expandChildren: false);
+                cell.gameObject.AddComponent<LayoutElement>().preferredWidth = 64f;
+                UiFactory.Icon(cell, "Icon", Icons?.ForStatus(kind), 22f, UiFactory.Accent);
+                UiFactory.Label(cell, "Stacks", stacks > 1 || kind is StatusKind.Burn or StatusKind.Poison ? stacks.ToString() : "", 16f, TextAlignmentOptions.MidlineLeft);
+            }
         }
 
         private string HintText(CombatState state)
         {
             if (m_pendingSlot >= 0)
             {
-                if (m_pendingKind == TargetKind.Die && m_pendingIsSignature && !DieDefinition.IsValidFaceIndex(m_loadedFace)) return "Loaded Dice: choose the face, then click a hero's die.";
-                return m_pendingKind == TargetKind.Enemy ? "Click an enemy." : "Click a hero's die.";
+                if (m_pendingKind == TargetKind.Die && m_pendingIsSignature && !DieDefinition.IsValidFaceIndex(m_loadedFace)) return "Loaded Dice: choose the face below, then click a hero's die.";
+                return m_pendingKind == TargetKind.Enemy ? "Click an enemy." : "Click a hero's die. Each card shows what it would become.";
             }
             if (state.PendingAllyReroll >= 0) return $"Drag in the box to re-throw {state.Hero(state.PendingAllyReroll).Name}'s die.";
             return state.Phase switch
@@ -346,83 +558,13 @@ namespace DungeonDice.UI
             };
         }
 
-        private void BuildEnemyCards(CombatState state)
-        {
-            UiFactory.DestroyChildren(m_enemyRow);
-            bool targeting = m_pendingSlot >= 0 && m_pendingKind == TargetKind.Enemy;
-            foreach (var enemy in state.Enemies)
-            {
-                int index = enemy.Index;
-                var tint = !enemy.IsAlive ? UiFactory.PanelLocked : targeting ? UiFactory.Accent : new Color(0.3f, 0.12f, 0.12f, 1f);
-                var card = UiFactory.Button(m_enemyRow, $"Enemy{index}", "", () => ChooseTarget(index), tint, 18f, 150f);
-                card.interactable = targeting && enemy.IsAlive;
-                ReplaceLabelWithColumn(card, out var column);
-                UiFactory.Label(column, "Name", enemy.Name, 24f);
-                UiFactory.Label(column, "HP", enemy.IsAlive ? $"HP {enemy.Health}/{enemy.MaxHealth}{(enemy.Shield > 0 ? $"  Shield {enemy.Shield}" : "")}" : "Defeated", 20f);
-                UiFactory.Label(column, "Status", enemy.Statuses.ToString(), 16f, color: UiFactory.TextDim);
-                UiFactory.Label(column, "Intent", enemy.IsAlive && enemy.Intent != null ? $"Intends: {enemy.Intent.Describe()}" : "", 18f, color: UiFactory.Accent);
-            }
-        }
-
-        private void BuildHeroCards(CombatState state)
-        {
-            UiFactory.DestroyChildren(m_heroRow);
-            bool targetingDie = m_pendingSlot >= 0 && m_pendingKind == TargetKind.Die;
-            foreach (var hero in state.Heroes)
-            {
-                int slot = hero.Slot;
-                var die = state.Die(slot);
-                bool canBeTarget = targetingDie && die != null && !die.Spent && hero.IsAlive
-                                   && (m_pendingIsSignature || slot != m_pendingSlot);
-                var tint = !hero.IsAlive ? UiFactory.PanelLocked : canBeTarget ? UiFactory.Accent : HeroTint(hero.Color);
-                var card = UiFactory.Button(m_heroRow, $"Hero{slot}", "", () => ChooseTarget(slot), tint, 18f, 260f);
-                card.interactable = canBeTarget;
-                ReplaceLabelWithColumn(card, out var column);
-
-                UiFactory.Label(column, "Name", hero.Name, 24f);
-                UiFactory.Label(column, "HP", hero.IsAlive ? $"HP {hero.Health}/{hero.MaxHealth}{(hero.Shield > 0 ? $"  Shield {hero.Shield}" : "")}{(hero.Statuses.Has(StatusKind.Taunt) ? "  Taunting" : "")}" : "Fallen", 18f);
-                UiFactory.Label(column, "Die", die != null ? $"Die: {die}" : hero.IsAlive ? "Die: —" : "", 18f, color: UiFactory.TextDim);
-
-                if (die == null || die.Spent || !hero.IsAlive) continue;
-
-                if (state.Phase == CombatPhase.Reroll && !m_waitingForThrow)
-                {
-                    bool selected = m_rerollSelection.Contains(slot);
-                    UiFactory.Button(column, "RerollToggle", selected ? "Re-throw: yes" : "Re-throw: no", () => ToggleRerollDie(slot), selected ? UiFactory.Accent : UiFactory.PanelDark, 16f, 36f);
-                }
-                else if (state.Phase == CombatPhase.Act && m_pendingSlot < 0 && state.PendingAllyReroll < 0)
-                {
-                    var buttons = UiFactory.Group(column, "Buttons");
-                    UiFactory.Horizontal(buttons, spacing: 6f, padding: 0);
-                    UiFactory.FixedHeight(buttons, 36f);
-                    if (die.Face.Has(FaceEffectKind.Nudge))
-                    {
-                        UiFactory.Button(buttons, "NudgeUp", "Nudge +1", () => UseNudge(slot, 1), UiFactory.PanelDark, 16f, 36f);
-                        UiFactory.Button(buttons, "NudgeDown", "Nudge −1", () => UseNudge(slot, -1), UiFactory.PanelDark, 16f, 36f);
-                    }
-                    else
-                    {
-                        UiFactory.Button(buttons, "Use", $"Use {die.Face}", () => Use(slot), UiFactory.PanelDark, 16f, 36f);
-                    }
-                    UiFactory.Button(buttons, "Bank", $"Bank (+1 {hero.Color})", () => Bank(slot), UiFactory.PanelDark, 16f, 36f);
-
-                    var definition = hero.Run.Definition;
-                    if (definition.signatureKind != SignatureKind.None)
-                    {
-                        var sig = UiFactory.Button(column, "Signature", $"{definition.signatureName} (3 {hero.Color})", () => CastSignature(slot), UiFactory.PanelDark, 16f, 36f);
-                        sig.interactable = state.CanCastSignature(slot);
-                    }
-                }
-            }
-        }
-
         private void BuildActions(CombatState state)
         {
             UiFactory.DestroyChildren(m_actions);
-            void Add(string name, string text, System.Action onClick, Color? tint = null, bool interactable = true)
+            void Add(string name, string text, System.Action onClick, Color? tint = null, bool interactable = true, float width = 240f)
             {
                 var b = UiFactory.Button(m_actions, name, text, onClick, tint ?? UiFactory.PanelMid, 20f, 48f);
-                b.gameObject.GetComponent<LayoutElement>().preferredWidth = 240f;
+                b.gameObject.GetComponent<LayoutElement>().preferredWidth = width;
                 b.interactable = interactable;
             }
 
@@ -433,8 +575,13 @@ namespace DungeonDice.UI
                     for (int f = 1; f <= DieDefinition.FaceCount; f++)
                     {
                         int face = f;
-                        var fb = UiFactory.Button(m_actions, $"Face{f}", f.ToString(), () => ChooseLoadedFace(face), m_loadedFace == f ? UiFactory.Accent : UiFactory.PanelMid, 20f, 48f);
-                        fb.gameObject.GetComponent<LayoutElement>().preferredWidth = 48f;
+                        var fb = UiFactory.Button(m_actions, $"Face{f}", "", () => ChooseLoadedFace(face), m_loadedFace == f ? UiFactory.Accent : UiFactory.PanelMid, 20f, 48f);
+                        fb.gameObject.GetComponent<LayoutElement>().preferredWidth = 56f;
+                        var old = fb.GetComponentInChildren<TMP_Text>();
+                        if (old != null) Destroy(old.gameObject);
+                        var icon = UiFactory.Icon(fb.transform, "Pips", Icons?.ForPips(f), 36f);
+                        if (Icons?.ForPips(f) == null) UiFactory.Label(fb.transform, "Text", f.ToString(), 22f);
+                        UiFactory.Stretch(icon.rectTransform, 6f);
                     }
                 }
                 Add("Cancel", "Cancel", CancelTargeting);
@@ -455,16 +602,7 @@ namespace DungeonDice.UI
                     Add("Continue", state.Phase == CombatPhase.Won ? "Continue" : "Accept defeat", Continue, UiFactory.Accent);
                     break;
             }
-            Add("Abandon", "Abandon run", () => RunController.Instance?.AbandonRun());
-        }
-
-        private static void ReplaceLabelWithColumn(Button card, out RectTransform column)
-        {
-            var label = card.GetComponentInChildren<TMP_Text>();
-            if (label != null) Destroy(label.gameObject);
-            column = UiFactory.Group(card.transform, "Column");
-            UiFactory.Stretch(column, 8f);
-            UiFactory.Vertical(column, spacing: 4f, padding: 6, controlHeight: true);
+            Add("Abandon", "Abandon run", () => RunController.Instance?.AbandonRun(), width: 180f);
         }
 
         private static Color HeroTint(DieColor color) => color switch

@@ -29,7 +29,7 @@ MonoBehaviour:
       effects:
       - kind: 1
         value: 4
-  - faceIndex: 3
+  - faceIndex: 2
     replacement:
       label: Shield 5
       effects:

@@ -125,6 +125,10 @@ namespace DungeonDice.EditorTools
                 Debug.LogWarning("PrototypeSceneAuthoring: some enemies are missing; run DungeonDice ▸ Author Enemies first.");
             runController.ConfigureEnemies(regulars.Where(e => e != null), elite, boss);
 
+            var icons = IconAssetAuthoring.Load();
+            if (icons == null) Debug.LogWarning("PrototypeSceneAuthoring: icon library missing; run DungeonDice ▸ Author Icons first.");
+            runController.ConfigureIcons(icons);
+
             // The dice box, out of the main camera's view. Its own camera renders to the overlay.
             var diceBox = (GameObject)PrefabUtility.InstantiatePrefab(diceBoxPrefab, scene);
             diceBox.transform.position = new Vector3(0f, -500f, 0f);

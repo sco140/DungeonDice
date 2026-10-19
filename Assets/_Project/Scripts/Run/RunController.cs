@@ -34,6 +34,9 @@ namespace DungeonDice.Run
         [SerializeField] private List<DieDefinition> m_rewardDicePool = new();
         [Range(0f, 1f)] [SerializeField] private float m_restHealFraction = 0.3f;
 
+        [Header("UI")]
+        [SerializeField] private UI.IconLibrary m_icons;
+
         [Header("Dice box profiles")]
         [SerializeField] private DiceBoxProfile m_traversalProfile;
         [SerializeField] private DiceBoxProfile m_combatProfile;
@@ -52,6 +55,12 @@ namespace DungeonDice.Run
         public ActDefinition Act => m_act;
         public DiceBoxProfile TraversalProfile => m_traversalProfile;
         public DiceBoxProfile CombatProfile => m_combatProfile;
+        /// <summary>Icon set for every screen; may be null in tests (screens fall back to text).</summary>
+        public UI.IconLibrary Icons => m_icons;
+        public static UI.IconLibrary CurrentIcons => Instance != null ? Instance.m_icons : null;
+
+        /// <summary>Authoring-time wiring; the scene tool calls this.</summary>
+        public void ConfigureIcons(UI.IconLibrary icons) => m_icons = icons;
         public RunPhase Phase => State.Phase;
 
         private void Awake()
