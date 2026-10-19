@@ -23,4 +23,23 @@ MonoBehaviour:
   signatureDescription: Consume a target's statuses and deal damage equal to their
     stacks.
   signatureKind: 2
+  faceUpgrades:
+  - faceIndex: 1
+    replacement:
+      label: Burn 3
+      effects:
+      - kind: 5
+        value: 3
+  - faceIndex: 3
+    replacement:
+      label: Poison 4
+      effects:
+      - kind: 6
+        value: 4
+  - faceIndex: 6
+    replacement:
+      label: Burn 1
+      effects:
+      - kind: 5
+        value: 1
   portrait: {fileID: 0}

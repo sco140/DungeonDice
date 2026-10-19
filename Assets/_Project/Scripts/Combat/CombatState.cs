@@ -267,7 +267,9 @@ namespace DungeonDice.Combat
                 {
                     var targetDie = TargetableDie(target, out reason);
                     if (targetDie == null) return false;
-                    IDieModifier modifier = entry.kind == FaceEffectKind.Nudge ? new NudgeModifier(nudgeDelta >= 0 ? 1 : -1) : new FlipModifier();
+                    IDieModifier modifier = entry.kind == FaceEffectKind.Nudge
+                        ? new NudgeModifier(Math.Max(1, entry.value) * (nudgeDelta >= 0 ? 1 : -1)) // face value is the magnitude; upgrades can raise it
+                        : new FlipModifier();
                     targetDie.Result.Apply(modifier);
                     targetDie.MirroredFace = null;
                     DieModified?.Invoke(targetDie.Slot, modifier);

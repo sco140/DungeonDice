@@ -22,4 +22,25 @@ MonoBehaviour:
   signatureName: Bulwark
   signatureDescription: Shield 6 to all allies.
   signatureKind: 1
+  faceUpgrades:
+  - faceIndex: 1
+    replacement:
+      label: Strike 4
+      effects:
+      - kind: 1
+        value: 4
+  - faceIndex: 3
+    replacement:
+      label: Shield 5
+      effects:
+      - kind: 2
+        value: 5
+  - faceIndex: 5
+    replacement:
+      label: Taunt + Shield 4
+      effects:
+      - kind: 3
+        value: 0
+      - kind: 2
+        value: 4
   portrait: {fileID: 0}

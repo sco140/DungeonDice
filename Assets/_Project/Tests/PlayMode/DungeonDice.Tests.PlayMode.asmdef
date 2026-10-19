@@ -3,7 +3,9 @@
     "rootNamespace": "DungeonDice.Tests",
     "references": [
         "DungeonDice",
-        "UnityEngine.TestRunner"
+        "UnityEngine.TestRunner",
+        "UnityEngine.UI",
+        "Unity.TextMeshPro"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

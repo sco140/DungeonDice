@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using DungeonDice.Dice;
 using UnityEngine;
@@ -14,6 +15,21 @@ namespace DungeonDice.Run
         Detonate,
         /// <summary>Trickster: set any one unspent hero die to a chosen face.</summary>
         LoadedDice,
+    }
+
+    /// <summary>A Treasure reward option: replace one face of the hero's die with a better one.</summary>
+    [Serializable]
+    public class FaceUpgrade
+    {
+        [Range(1, DieDefinition.FaceCount)] public int faceIndex = 1;
+        public DieFace replacement = new();
+
+        /// <summary>"Strike 3 → Strike 4", read against the hero's current die.</summary>
+        public string Describe(DieDefinition currentDie)
+        {
+            var before = currentDie != null && DieDefinition.IsValidFaceIndex(faceIndex) ? currentDie.GetFace(faceIndex).ToString() : "?";
+            return $"{before} → {replacement}";
+        }
     }
 
     /// <summary>
@@ -42,6 +58,9 @@ namespace DungeonDice.Run
         [TextArea] public string signatureDescription;
         [Tooltip("Which built-in signature CombatState resolves. None for locked heroes.")]
         public SignatureKind signatureKind = SignatureKind.None;
+
+        [Header("Treasure: face upgrades (2–3), each offered once per run")]
+        public List<FaceUpgrade> faceUpgrades = new();
 
         [Header("Presentation")]
         public Sprite portrait;

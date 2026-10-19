@@ -57,6 +57,7 @@ namespace DungeonDice.EditorTools
             var traversalPool = new[] { "LowRoad", "Steady", "HighRoad", "Wild" }
                 .Select(n => AssetDatabase.LoadAssetAtPath<Dice.DieDefinition>($"Assets/_Project/Data/Dice/Traversal/{n}.asset")).ToList();
             var treasureDie = AssetDatabase.LoadAssetAtPath<Dice.DieDefinition>("Assets/_Project/Data/Dice/Traversal/Pilgrim.asset");
+            var rewardPool = traversalPool.Append(treasureDie).ToList(); // Treasure may grant any traversal die, Pilgrim included
             if (traversalPool.Any(d => d == null) || treasureDie == null)
             {
                 Debug.LogError("PrototypeSceneAuthoring: traversal dice missing; run DungeonDice ▸ Author Prototype Dice first.");
@@ -111,10 +112,11 @@ namespace DungeonDice.EditorTools
                 Screen<TraversalPickScreen>(canvasGo.transform, RunPhase.TraversalPick, null),
                 Screen<MapScreen>(canvasGo.transform, RunPhase.Map, null),
                 Screen<CombatScreen>(canvasGo.transform, RunPhase.Combat, null),
-                Screen<PlaceholderScreen>(canvasGo.transform, RunPhase.RunEnd, s => s.Configure(RunPhase.RunEnd, RunPhase.HeroPick, "Run Over")),
+                Screen<RewardScreen>(canvasGo.transform, RunPhase.Reward, null),
+                Screen<RunEndScreen>(canvasGo.transform, RunPhase.RunEnd, null),
             };
             router.SetScreens(screens);
-            runController.Configure(router, roster, act, traversalPool, treasureDie, traversalProfile, combatProfile);
+            runController.Configure(router, roster, act, traversalPool, rewardPool, traversalProfile, combatProfile);
 
             var regulars = EnemyAssetAuthoring.Regulars.Select(EnemyAssetAuthoring.Load).ToList();
             var elite = EnemyAssetAuthoring.Load(EnemyAssetAuthoring.Elite);

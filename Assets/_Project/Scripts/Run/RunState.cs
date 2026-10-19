@@ -14,6 +14,8 @@ namespace DungeonDice.Run
         TraversalPick,
         Map,
         Combat,
+        /// <summary>Treasure node: choose one <see cref="RewardOption"/>.</summary>
+        Reward,
         RunEnd,
     }
 
@@ -37,6 +39,10 @@ namespace DungeonDice.Run
         /// The prototype uses one die per hero; <see cref="HeroDefinition.dice"/> keeps a list for later.
         /// </summary>
         public DieDefinition Die { get; private set; }
+
+        /// <summary>Indices into <see cref="HeroDefinition.faceUpgrades"/> already taken this run.</summary>
+        public IReadOnlyCollection<int> AppliedUpgrades => m_appliedUpgrades;
+        private readonly HashSet<int> m_appliedUpgrades = new();
 
         public bool IsAlive => CurrentHealth > 0;
 
@@ -74,6 +80,29 @@ namespace DungeonDice.Run
             var upgraded = Die.WithFaceReplaced(faceIndex, replacement);
             DestroyRuntimeObject(Die);
             Die = upgraded;
+        }
+
+        /// <summary>Upgrades on the definition that have not been taken yet (as indices).</summary>
+        public IEnumerable<int> AvailableUpgrades()
+        {
+            var list = Definition.faceUpgrades;
+            if (list == null || Die == null) yield break;
+            for (int i = 0; i < list.Count; i++)
+            {
+                if (list[i] != null && !m_appliedUpgrades.Contains(i)) yield return i;
+            }
+        }
+
+        /// <summary>Take an upgrade from the definition's list (Treasure reward).</summary>
+        public void ApplyUpgrade(int upgradeIndex)
+        {
+            var list = Definition.faceUpgrades;
+            if (list == null || upgradeIndex < 0 || upgradeIndex >= list.Count)
+                throw new ArgumentOutOfRangeException(nameof(upgradeIndex));
+            if (!m_appliedUpgrades.Add(upgradeIndex))
+                throw new InvalidOperationException("Upgrade already applied.");
+            var upgrade = list[upgradeIndex];
+            UpgradeFace(upgrade.faceIndex, upgrade.replacement);
         }
 
         /// <summary>Destroy a runtime-created object in Play mode or in the Editor (tests run in edit mode).</summary>
@@ -116,6 +145,10 @@ namespace DungeonDice.Run
         public bool CurrentNodeResolved { get; private set; }
         public IReadOnlyCollection<int> VisitedNodes => m_visited;
         public MapNode CurrentNode => Act != null ? Act.Node(CurrentNodeIndex) : null;
+        /// <summary>The Treasure offer being chosen from, while <see cref="Phase"/> is Reward.</summary>
+        public RewardOffer PendingReward { get; set; }
+        /// <summary>One line about what just happened at this node (rest, treasure, victory), shown on the map.</summary>
+        public string LastNodeSummary { get; set; }
 
         public IEnumerable<HeroRunState> LivingHeroes => m_party.Where(h => h.IsAlive);
         public bool PartyWiped => IsActive && m_party.All(h => !h.IsAlive);
@@ -168,6 +201,7 @@ namespace DungeonDice.Run
             CurrentNodeIndex = nodeIndex;
             m_visited.Add(nodeIndex);
             CurrentNodeResolved = Act.Node(nodeIndex).type == NodeType.Start;
+            LastNodeSummary = null;
         }
 
         public void ResolveCurrentNode() => CurrentNodeResolved = true;
@@ -188,6 +222,8 @@ namespace DungeonDice.Run
             Act = null;
             CurrentNodeIndex = 0;
             CurrentNodeResolved = false;
+            PendingReward = null;
+            LastNodeSummary = null;
             Outcome = RunOutcome.None;
             IsActive = false;
             Phase = RunPhase.HeroPick;

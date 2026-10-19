@@ -23,4 +23,17 @@ MonoBehaviour:
   signatureName: Loaded Dice
   signatureDescription: Set any one die, hero or traversal, to a chosen face.
   signatureKind: 3
+  faceUpgrades:
+  - faceIndex: 6
+    replacement:
+      label: Jab 4
+      effects:
+      - kind: 4
+        value: 4
+  - faceIndex: 1
+    replacement:
+      label: "Nudge \xB12"
+      effects:
+      - kind: 10
+        value: 2
   portrait: {fileID: 0}

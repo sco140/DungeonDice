@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using DungeonDice.Dice;
 using DungeonDice.Run;
 using UnityEditor;
@@ -48,6 +49,36 @@ namespace DungeonDice.EditorTools
             Debug.Log("HeroAssetAuthoring: six heroes authored.");
         }
 
+        /// <summary>Treasure face upgrades per class. Face indices match the dice authored in DiceAssetAuthoring.</summary>
+        private static List<FaceUpgrade> UpgradesFor(string hero)
+        {
+            FaceEffectEntry E(FaceEffectKind k, int v = 0) => new(k, v);
+            FaceUpgrade U(int face, string label, params FaceEffectEntry[] effects) =>
+                new() { faceIndex = face, replacement = DieFace.Of(label, effects) };
+
+            return hero switch
+            {
+                "Knight" => new List<FaceUpgrade>
+                {
+                    U(1, "Strike 4", E(FaceEffectKind.Strike, 4)),
+                    U(3, "Shield 5", E(FaceEffectKind.Shield, 5)),
+                    U(5, "Taunt + Shield 4", E(FaceEffectKind.Taunt), E(FaceEffectKind.Shield, 4)),
+                },
+                "Arcanist" => new List<FaceUpgrade>
+                {
+                    U(1, "Burn 3", E(FaceEffectKind.Burn, 3)),
+                    U(3, "Poison 4", E(FaceEffectKind.Poison, 4)),
+                    U(6, "Burn 1", E(FaceEffectKind.Burn, 1)), // Fizzle becomes a weak face instead of a dead one
+                },
+                "Trickster" => new List<FaceUpgrade>
+                {
+                    U(6, "Jab 4", E(FaceEffectKind.Jab, 4)),
+                    U(1, "Nudge ±2", E(FaceEffectKind.Nudge, 2)),
+                },
+                _ => new List<FaceUpgrade>(),
+            };
+        }
+
         public static HeroDefinition Load(string name) =>
             AssetDatabase.LoadAssetAtPath<HeroDefinition>($"{HeroDir}/{name}.asset");
 
@@ -80,6 +111,7 @@ namespace DungeonDice.EditorTools
             hero.signatureKind = signatureKind;
             hero.dice.Clear();
             if (die != null) hero.dice.Add(die);
+            hero.faceUpgrades = UpgradesFor(name);
             EditorUtility.SetDirty(hero);
             Debug.Log($"HeroAssetAuthoring: {(created ? "created" : "updated")} {path}");
         }

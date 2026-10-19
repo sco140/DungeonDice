@@ -21,4 +21,5 @@ MonoBehaviour:
   signatureName: 
   signatureDescription: 
   signatureKind: 0
+  faceUpgrades: []
   portrait: {fileID: 0}

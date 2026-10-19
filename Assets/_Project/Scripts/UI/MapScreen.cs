@@ -134,7 +134,7 @@ namespace DungeonDice.UI
                 return;
             }
 
-            m_result.text = m_awaitingRoll ? "Throw the dice…" : "";
+            m_result.text = m_awaitingRoll ? "Throw the dice…" : run.LastNodeSummary ?? "";
             if (!run.CurrentNodeResolved)
             {
                 BuildEnterAction(current);

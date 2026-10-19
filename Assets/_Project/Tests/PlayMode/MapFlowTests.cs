@@ -98,7 +98,6 @@ namespace DungeonDice.Tests
             // Enter it. Combat-type nodes go to the Combat phase and come back via CompleteNode;
             // Treasure resolves in place and grants a die.
             var node = run.State.CurrentNode;
-            int diceBefore = run.State.TraversalDice.Count;
             map.EnterNode();
             yield return null;
             if (node.IsCombat)
@@ -108,10 +107,18 @@ namespace DungeonDice.Tests
                 yield return null;
                 Assert.AreEqual(RunPhase.Map, run.Phase);
             }
+            else if (node.type == NodeType.Treasure)
+            {
+                // Treasure opens the reward screen; take the first option to get back to the map.
+                Assert.AreEqual(RunPhase.Reward, run.Phase);
+                Assert.IsNotNull(run.State.PendingReward);
+                run.ChooseReward(0);
+                yield return null;
+                Assert.AreEqual(RunPhase.Map, run.Phase);
+            }
             else
             {
                 Assert.AreEqual(RunPhase.Map, run.Phase);
-                if (node.type == NodeType.Treasure) Assert.AreEqual(diceBefore + 1, run.State.TraversalDice.Count, "treasure grants a die");
             }
             Assert.IsTrue(run.State.CurrentNodeResolved);
             Assert.AreEqual(4, node.nextNode, "every first-ring node leads to the Rest at node 4");

@@ -30,8 +30,8 @@ namespace DungeonDice.Run
         [SerializeField] private ActDefinition m_act;
         [Tooltip("The dice offered at the start node; the player takes RunState.TraversalPickCount of them.")]
         [SerializeField] private List<DieDefinition> m_startingTraversalPool = new();
-        [Tooltip("Placeholder Treasure reward until the reward screen exists: this die is added to the party's traversal dice.")]
-        [SerializeField] private DieDefinition m_treasureDie;
+        [Tooltip("Treasure can grant one of these traversal dice (drawn with the run RNG).")]
+        [SerializeField] private List<DieDefinition> m_rewardDicePool = new();
         [Range(0f, 1f)] [SerializeField] private float m_restHealFraction = 0.3f;
 
         [Header("Dice box profiles")]
@@ -48,6 +48,7 @@ namespace DungeonDice.Run
         public RunState State { get; private set; } = new();
         public IReadOnlyList<HeroDefinition> Roster => m_roster;
         public IReadOnlyList<DieDefinition> StartingTraversalPool => m_startingTraversalPool;
+        public IReadOnlyList<DieDefinition> RewardDicePool => m_rewardDicePool;
         public ActDefinition Act => m_act;
         public DiceBoxProfile TraversalProfile => m_traversalProfile;
         public DiceBoxProfile CombatProfile => m_combatProfile;
@@ -136,28 +137,53 @@ namespace DungeonDice.Run
                     break;
 
                 case NodeType.Rest:
+                {
+                    var parts = new List<string>();
                     foreach (var hero in State.LivingHeroes)
                     {
                         int healed = hero.Heal(Mathf.CeilToInt(hero.MaxHealth * m_restHealFraction));
-                        Debug.Log($"RunController: {hero.Definition.displayName} rests, +{healed} HP.");
+                        parts.Add($"{hero.Definition.displayName} +{healed}");
                     }
+                    State.LastNodeSummary = $"Rested: {string.Join(", ", parts)}.";
+                    Debug.Log($"RunController: {State.LastNodeSummary}");
                     State.ResolveCurrentNode();
                     break;
+                }
 
                 case NodeType.Treasure:
-                    // Placeholder reward: a new traversal die. The reward choice screen is a later step.
-                    if (m_treasureDie != null)
+                {
+                    var offer = RewardOffer.Generate(State, m_rewardDicePool, State.Rng);
+                    if (offer.Options.Count == 0)
                     {
-                        State.AddTraversalDie(m_treasureDie);
-                        Debug.Log($"RunController: treasure grants {m_treasureDie.displayName}.");
+                        State.LastNodeSummary = "The treasure was empty.";
+                        State.ResolveCurrentNode();
+                        break;
                     }
-                    State.ResolveCurrentNode();
+                    State.PendingReward = offer;
+                    SetPhase(RunPhase.Reward);
                     break;
+                }
 
                 default:
                     State.ResolveCurrentNode();
                     break;
             }
+        }
+
+        /// <summary>The Reward screen's choice. Applies it, resolves the Treasure node and returns to the map.</summary>
+        public void ChooseReward(int optionIndex)
+        {
+            var offer = State.PendingReward;
+            if (offer == null)
+            {
+                Debug.LogWarning("RunController: no reward pending.");
+                return;
+            }
+            State.LastNodeSummary = offer.Apply(optionIndex, State);
+            Debug.Log($"RunController: {State.LastNodeSummary}");
+            State.PendingReward = null;
+            State.ResolveCurrentNode();
+            SetPhase(RunPhase.Map);
         }
 
         /// <summary>Called when the current node's combat is over (won). The Boss ends the run in victory.</summary>
@@ -166,6 +192,7 @@ namespace DungeonDice.Run
             var node = State.CurrentNode;
             if (node == null) return;
             State.ResolveCurrentNode();
+            State.LastNodeSummary = $"Victory at {node.name}.";
             if (node.type == NodeType.Boss)
             {
                 State.EndRun(RunOutcome.Victory);
@@ -231,7 +258,7 @@ namespace DungeonDice.Run
 
         /// <summary>Authoring-time wiring; the scene tool calls this.</summary>
         public void Configure(ScreenRouter router, IEnumerable<HeroDefinition> roster, ActDefinition act,
-            IEnumerable<DieDefinition> startingTraversalPool, DieDefinition treasureDie,
+            IEnumerable<DieDefinition> startingTraversalPool, IEnumerable<DieDefinition> rewardDicePool,
             DiceBoxProfile traversalProfile, DiceBoxProfile combatProfile)
         {
             m_router = router;
@@ -240,7 +267,8 @@ namespace DungeonDice.Run
             m_act = act;
             m_startingTraversalPool.Clear();
             m_startingTraversalPool.AddRange(startingTraversalPool);
-            m_treasureDie = treasureDie;
+            m_rewardDicePool.Clear();
+            m_rewardDicePool.AddRange(rewardDicePool);
             m_traversalProfile = traversalProfile;
             m_combatProfile = combatProfile;
         }
