@@ -1,6 +1,8 @@
 # DungeonDice — Architecture
 
-_Snapshot taken 2026-10-19 from branch `ROBOCODY` (Unity 6000.3.5f2). Written by reading every script, the scene, prefabs, and project settings, and by inspecting the live Editor. No code was changed to produce this document._
+_Snapshot taken 2026-10-19 from branch `ROBOCODY` (Unity 6000.3.5f2), **before prototype build-order step 1**. Written by reading every script, the scene, prefabs, and project settings, and by inspecting the live Editor._
+
+> **Status note (after step 1, same day):** the live scripts now sit under `Assets/_Project/Scripts/` in the `DungeonDice` assembly, `BaseDice` became `DieDefinition`, `DieHandler.cs`/`LaunchDice.cs` were deleted, and `DiceManager` emits `RollCompleted` instead of summing mana. Items 1, 2, 7 (partly), 9, 12 and 17 (for `DiceManager`) in §9 are resolved. `CLAUDE.md` describes the current layout; this document remains the reference for the SampleScene wiring and the original event flow.
 
 ---
 

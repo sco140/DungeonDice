@@ -12,22 +12,31 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5859190561171f841b40a745f8d35706, type: 3}
   m_Name: LegacyDie
   m_EditorClassIdentifier: Assembly-CSharp::BaseDice
-  m_lstDieFaces:
-  - m_diceFaceIndex: 1
-    m_type: 0
-    amount: 1
-  - m_diceFaceIndex: 2
-    m_type: 1
-    amount: 1
-  - m_diceFaceIndex: 3
-    m_type: 2
-    amount: 1
-  - m_diceFaceIndex: 4
-    m_type: 2
-    amount: 1
-  - m_diceFaceIndex: 5
-    m_type: 1
-    amount: 1
-  - m_diceFaceIndex: 6
-    m_type: 0
-    amount: 1
+  displayName: Legacy Red d6
+  color: 1
+  visualMaterial: {fileID: 0}
+  faces:
+  - label: 1
+    effects:
+    - kind: 0
+      value: 1
+  - label: 2
+    effects:
+    - kind: 0
+      value: 2
+  - label: 3
+    effects:
+    - kind: 0
+      value: 3
+  - label: 4
+    effects:
+    - kind: 0
+      value: 4
+  - label: 5
+    effects:
+    - kind: 0
+      value: 5
+  - label: 6
+    effects:
+    - kind: 0
+      value: 6

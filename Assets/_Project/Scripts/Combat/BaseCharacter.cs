@@ -1,3 +1,4 @@
+using DungeonDice.Dice;
 using GameUtility;
 using System.Collections.Generic;
 using UnityEngine;
@@ -12,7 +13,7 @@ public abstract class BaseCharacters : ScriptableObject
 	[Range(0, 100)]
 	public uint m_nAttack = 50;
 
-	public List<BaseDice> m_lstDiceValues;
+	public List<DieDefinition> m_lstDiceValues;
 	// TODO: Create a class to handle skills and add it here.
 	public BaseSkill[] m_lstSkills = new BaseSkill[4];
     // TODO: Create a way to handle passive skills and add it here.

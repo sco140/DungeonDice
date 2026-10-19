@@ -1,35 +1,68 @@
+using DungeonDice.Dice;
 using GameUtility;
 using UnityEngine;
 
-public class GameManager : MonoBehaviour
+namespace DungeonDice.Core
 {
-    public static GameManager Instance { get; private set; }
-
-    private void Awake()
+    /// <summary>
+    /// Legacy SampleScene driver: starts the mana roll and turns a completed roll into mana.
+    /// Replaced by the run/combat controllers as the prototype is built.
+    /// </summary>
+    public class GameManager : MonoBehaviour
     {
-        if (Instance && Instance != this)
+        public static GameManager Instance { get; private set; }
+
+        private void Awake()
         {
-            Destroy(gameObject);
-            return;
+            if (Instance && Instance != this)
+            {
+                Destroy(gameObject);
+                return;
+            }
+            Instance = this;
         }
-        Instance = this;
-    }
-    // Start is called once before the first execution of Update after the MonoBehaviour is created
-    void Start()
-    {
-        // Turn on the dice roller UI when the game starts.
-        EventManager.TriggerEvent("EnableDiceLaunch", PlayerTeamManager.DiceCount);
-    }
 
-    public void EndTurn()
-    {
-        // TODO: This should go to the next player or AI turn, but for now, it just starts the turn again.
-        StartTurn();
-    }
+        private void Start()
+        {
+            // Registered in Start rather than Awake: EventManager shares this GameObject and
+            // component Awake order is not guaranteed.
+            EventManager.Register(GameEvents.RollCompleted, new EventHandler<RollCompletedEvent>(OnRollCompleted));
+            EventManager.TriggerEvent(GameEvents.EnableDiceLaunch, PlayerTeamManager.DiceCount);
+        }
 
-    public void StartTurn()
-    {
-        // Turn on the dice roller UI when the turn starts.
-        EventManager.TriggerEvent("EnableDiceLaunch", PlayerTeamManager.DiceCount);
+        private void OnDestroy()
+        {
+            if (Instance != this) return;
+            EventManager.Unregister<RollCompletedEvent>(GameEvents.RollCompleted, OnRollCompleted);
+        }
+
+        /// <summary>
+        /// Previews the "bank it" rule: every die yields 1 mana of its color.
+        /// </summary>
+        private void OnRollCompleted(RollCompletedEvent roll)
+        {
+            var update = new Event_ResourceUpdate();
+            foreach (var result in roll.Results)
+            {
+                switch (result.Color)
+                {
+                    case DieColor.Red: update.red++; break;
+                    case DieColor.Blue: update.blue++; break;
+                    case DieColor.Yellow: update.yellow++; break;
+                }
+            }
+            EventManager.TriggerEvent(GameEvents.UpdateResources, update);
+        }
+
+        public void EndTurn()
+        {
+            // TODO: advance to the next player or AI turn; for now the turn simply restarts.
+            StartTurn();
+        }
+
+        public void StartTurn()
+        {
+            EventManager.TriggerEvent(GameEvents.EnableDiceLaunch, PlayerTeamManager.DiceCount);
+        }
     }
 }

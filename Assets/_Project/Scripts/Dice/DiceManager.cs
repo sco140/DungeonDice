@@ -1,250 +1,231 @@
-using GameUtility;
 using System.Collections.Generic;
+using System.Linq;
+using DungeonDice.Core;
+using GameUtility;
 using UnityEngine;
 
-
-public class DiceManager : MonoBehaviour
+namespace DungeonDice.Dice
 {
-    // Singleton instance of the DiceManager.
-    public static DiceManager Instance { get; private set; }
-
-    public int m_idleTorqueStrength = 10;
-    public int m_launchTorqueStrength = 20;
-    public float m_spawnPadding = 100;
-    public float m_downwardForce = 0.5f;
     /// <summary>
-    /// A list to keep track of the retrieved resources from the dice rolls.
+    /// Owns the dice in the box: pools die prefabs, idles them in the air, throws the active set
+    /// on <see cref="GameEvents.LaunchDice"/>, collects each die's settled face and fires
+    /// <see cref="GameEvents.RollCompleted"/> with one <see cref="RollResult"/> per active die.
+    /// Knows nothing about mana or combat.
     /// </summary>
-    private List<BaseDice.ResourceFace> m_lstRetrievedResource = new List<BaseDice.ResourceFace>();
-    // The diePrefab should be assigned in the Unity Inspector.
-    // This is the prefab that will be instantiated when spawning dice.
-    [SerializeField]
-    private GameObject diePrefab;
-    // The diceSpawnPoint should be assigned in the Unity Inspector.
-    // This is the point where the dice will be spawned in the scene.
-    [SerializeField]
-    private GameObject diceSpawnPoint;
-    [SerializeField]
-    private float m_maxForce = 50f;
-    [SerializeField]
-    private float m_minForce = 5f;
-
-    // A list to keep track of the spawned dice.
-    private List<GameObject> m_spawnedDiceList = new List<GameObject>();
-    // A flag to indicate whether the dice are currently idle.
-    private bool m_isIdle = true;
-    private void OnDestroy()
+    public class DiceManager : MonoBehaviour
     {
-        EventManager.Unregister<int>("SetUpDice", SetUpDice);
-        EventManager.Unregister<Vector3>("LaunchDice", LaunchDice);
-    }
-    private void Awake()
-    {
-        if (Instance != null && Instance != this)
+        public static DiceManager Instance { get; private set; }
+
+        public int m_idleTorqueStrength = 10;
+        public int m_launchTorqueStrength = 20;
+        public float m_spawnPadding = 100;
+        public float m_downwardForce = 0.5f;
+
+        [SerializeField] private GameObject diePrefab;
+        [SerializeField] private GameObject diceSpawnPoint;
+        [SerializeField] private float m_maxForce = 50f;
+        [SerializeField] private float m_minForce = 5f;
+
+        [Tooltip("Gravity while dice are in flight. Restored to the project default when the roll completes.")]
+        [SerializeField] private Vector3 m_throwGravity = new(0f, -12f, 0f);
+        [Tooltip("Per-rigidbody solver iterations for dice, so the global Physics defaults are untouched.")]
+        [SerializeField] private int m_dieSolverIterations = 12;
+
+        /// <summary>Every die ever spawned. Inactive entries are pooled for later rolls.</summary>
+        private readonly List<GameObject> m_pool = new();
+        /// <summary>The dice taking part in the current roll, in owner order.</summary>
+        private readonly List<DiceHandler> m_active = new();
+        private readonly List<RollResult> m_results = new();
+
+        private bool m_isIdle = true;
+        private Vector3 m_defaultGravity;
+        private bool m_gravityOverridden;
+
+        public bool IsIdle => m_isIdle;
+        public IReadOnlyList<DiceHandler> ActiveDice => m_active;
+
+        private void Awake()
         {
-            Destroy(gameObject);
-            return;
-        }
-
-        Instance = this;
-        Physics.defaultSolverIterations = 12;
-        Physics.defaultSolverVelocityIterations = 12;
-
-        // Validate the diePrefab and diceSpawnPoint before proceeding.
-        if (Instance.diePrefab == null)
-        {
-            Debug.LogError("Die prefab is not assigned in the inspector.");
-            Instance.enabled = false;
-            return;
-        }
-
-        if (Instance.diceSpawnPoint == null)
-        {
-            Debug.LogError("Dice spawn point is not assigned in the inspector.");
-            Instance.enabled = false;
-            return;
-        }
-
-        DontDestroyOnLoad(gameObject);
-        EventManager.Register("SetUpDice", new EventHandler<int>(SetUpDice));
-        EventManager.Register("LaunchDice", new EventHandler<Vector3>(LaunchDice));
-    }
-
-    // Update is called once per frame
-    void Update()
-    {
-        if (m_isIdle)
-        {
-            // Continuously apply torque to keep them rolling.
-            foreach (var diePrefab in m_spawnedDiceList)
+            if (Instance != null && Instance != this)
             {
-                var dieRigidBody = diePrefab.GetComponent<Rigidbody>();
-                if (dieRigidBody)
+                Destroy(gameObject);
+                return;
+            }
+            Instance = this;
+
+            if (diePrefab == null)
+            {
+                Debug.LogError("Die prefab is not assigned in the inspector.");
+                enabled = false;
+                return;
+            }
+            if (diceSpawnPoint == null)
+            {
+                Debug.LogError("Dice spawn point is not assigned in the inspector.");
+                enabled = false;
+                return;
+            }
+
+            m_defaultGravity = Physics.gravity;
+            DontDestroyOnLoad(gameObject);
+            EventManager.Register(GameEvents.SetUpDice, new EventHandler<int>(SetUpDice));
+            EventManager.Register(GameEvents.LaunchDice, new EventHandler<Vector3>(LaunchDice));
+        }
+
+        private void OnDestroy()
+        {
+            if (Instance != this) return;
+            EventManager.Unregister<int>(GameEvents.SetUpDice, SetUpDice);
+            EventManager.Unregister<Vector3>(GameEvents.LaunchDice, LaunchDice);
+            RestoreGravity();
+        }
+
+        private void Update()
+        {
+            if (!m_isIdle) return;
+            // Keep the idle dice tumbling in the air.
+            foreach (var die in m_active)
+            {
+                if (die.TryGetComponent(out Rigidbody rb))
                 {
-                    dieRigidBody.AddTorque(
-                    Random.onUnitSphere * m_idleTorqueStrength,
-                    ForceMode.Acceleration);
+                    rb.AddTorque(Random.onUnitSphere * m_idleTorqueStrength, ForceMode.Acceleration);
+                }
+            }
+        }
+
+        /// <summary>Set up <paramref name="diceCount"/> dice, each keeping whatever definition its prefab carries.</summary>
+        public static void SetUpDice(int diceCount) => Instance.SetUp(diceCount, null);
+
+        /// <summary>Set up one die per definition, in order. Owner ids are the list indices.</summary>
+        public static void SetUpDice(IReadOnlyList<DieDefinition> definitions) =>
+            Instance.SetUp(definitions.Count, definitions);
+
+        private void SetUp(int diceCount, IReadOnlyList<DieDefinition> definitions)
+        {
+            RestoreGravity(); // in case a previous roll never completed
+            m_results.Clear();
+            m_active.Clear();
+            m_isIdle = true;
+
+            // Line the dice up, centred on the spawn point.
+            var position = diceSpawnPoint.transform.position;
+            position.x -= (diceCount - 1) / 2.0f * m_spawnPadding;
+
+            while (m_pool.Count < diceCount)
+            {
+                var die = Instantiate(diePrefab, position, Quaternion.identity, diceSpawnPoint.transform);
+                die.name = $"Dice_{m_pool.Count}";
+                m_pool.Add(die);
+            }
+
+            for (int i = 0; i < m_pool.Count; i++)
+            {
+                var die = m_pool[i];
+                bool active = i < diceCount;
+                die.SetActive(active);
+                if (!active) continue;
+
+                die.transform.SetPositionAndRotation(position, Random.rotation);
+                position.x += m_spawnPadding;
+
+                if (!die.TryGetComponent(out DiceHandler handler))
+                {
+                    Debug.LogWarning($"Die prefab [ {die.name} ] does not have a DiceHandler component.");
+                    continue;
+                }
+                if (definitions != null && definitions[i] != null) handler.Definition = definitions[i];
+                handler.OwnerId = i;
+                m_active.Add(handler);
+
+                if (die.TryGetComponent(out Rigidbody rb))
+                {
+                    rb.useGravity = false;
+                    rb.solverIterations = m_dieSolverIterations;
+                    rb.solverVelocityIterations = m_dieSolverIterations;
+                    rb.linearVelocity = Vector3.zero;
+                    rb.angularVelocity = Random.insideUnitSphere * m_idleTorqueStrength;
                 }
                 else
                 {
-                    Debug.LogWarning($"Die prefab [ {diePrefab.name} ] does not have a Rigidbody component.");
+                    Debug.LogWarning($"Die prefab [ {die.name} ] does not have a Rigidbody component.");
                 }
             }
         }
-    }
 
-    public static void SetUpDice(int diceCount)
-    {
-        // Spawn the dice in a line with some padding between them.
-        var currentPosition = Instance.diceSpawnPoint.transform.position;
-        // Adjust the starting position to center the dice based on the count and padding.
-        currentPosition.x -= (diceCount - 1) / 2.0f * Instance.m_spawnPadding;
-
-        var diceList = Instance.m_spawnedDiceList;
-
-        // Loop through the dice and set their positions
-        // based on the calculated starting position and padding.
-        for (int i = 0, currentCount = diceList.Count; i < currentCount; i++)
+        /// <param name="toVector">Direction and magnitude of the drag; magnitude is clamped to the force range.</param>
+        public static void LaunchDice(Vector3 toVector)
         {
-            diceList[i].transform.position = currentPosition;
-            // Updating padding for next dice.
-            currentPosition.x += Instance.m_spawnPadding;
-            // Ensure the die is active in case it was previously disabled.
-            diceList[i].SetActive(true);
-        }
-
-        if (diceList.Count < diceCount)
-        {
-            // If the current number of spawned dice is less than the requested count, spawn new dice.
-            for (int i = diceList.Count; i < diceCount; i++)
+            var self = Instance;
+            if (self.m_active.Count == 0)
             {
-                // Create a new die
-                var newDice = Instantiate(
-                   Instance.diePrefab,
-                   currentPosition,
-                   Quaternion.identity,
-                   Instance.diceSpawnPoint.transform);
-                // Update dice name
-                newDice.name = $"Dice_{i}";
-                diceList.Add(newDice);
-                // Update padding for next dice.
-                currentPosition.x += Instance.m_spawnPadding;
+                Debug.LogWarning("No dice have been set up to launch.");
+                return;
             }
-        }
-        else if (diceList.Count > diceCount)
-        {
-            // disable extra dice if the count is less than the current list.
-            for (int i = diceCount, count = diceList.Count; i < count; ++i)
+            if (!self.m_isIdle)
             {
-                diceList[i].SetActive(false);
+                Debug.LogWarning("Dice have been launched already.");
+                return;
+            }
+
+            var direction = toVector.normalized + Vector3.down * self.m_downwardForce;
+            var force = Mathf.Clamp(toVector.magnitude, self.m_minForce, self.m_maxForce);
+            Debug.Log($"Launch force applied to the dice [ {force} ]");
+
+            self.OverrideGravity();
+            self.m_isIdle = false;
+            foreach (var handler in self.m_active)
+            {
+                handler.LaunchDice(direction * force, Random.insideUnitSphere * self.m_launchTorqueStrength);
             }
         }
 
-        // Reset the idle state
-        foreach (var die in diceList)
+        /// <summary>Called by each <see cref="DiceHandler"/> once it has settled.</summary>
+        public static void ProcessDiceValue(DiceHandler die, int faceIndex)
         {
-            var dieRigidBody = die.GetComponent<Rigidbody>();
-            if (dieRigidBody)
+            var self = Instance;
+            if (die.Definition == null)
             {
-                // Disable gravity and apply a random torque to the die to make it spin in the air.
-                dieRigidBody.useGravity = false;
-                dieRigidBody.angularVelocity = Random.insideUnitSphere * Instance.m_idleTorqueStrength;
+                Debug.LogError($"Die [ {die.name} ] has no DieDefinition; its result is dropped.");
             }
             else
             {
-                Debug.LogWarning($"Die prefab [ {die.name} ] does not have a Rigidbody component.");
-            }
-        }
-    }
-
-    /// <summary>
-    /// Launch the dice in the specified direction.
-    /// </summary>
-    /// <param name="toVector">Represents the direction and magnitude of the launch</param>
-    public static void LaunchDice(Vector3 toVector)
-    {
-        if (Instance.m_spawnedDiceList.Count == 0)
-        {
-            Debug.LogWarning("No dice have been spawned to launch.");
-            return;
-        }
-
-        if (!Instance.m_isIdle)
-        {
-            Debug.LogWarning("Dice have been launched already.");
-            return;
-        }
-
-        var direction = toVector.normalized + (Vector3.down * Instance.m_downwardForce);
-        var force = Mathf.Clamp(toVector.magnitude, Instance.m_minForce, Instance.m_maxForce);
-        Debug.Log($"Launch force applied to the dice [ {force} ]");
-
-        // Change the gravity to be stronger than the default to make the dice fall faster.
-        // Note: This is a temporary change and should be reset after the dice have settled.
-        // The default gravity in Unity is (0, -9.81, 0). Here we set it to (0, -12, 0) for a stronger effect.
-        Physics.gravity = new Vector3(0, -12f, 0);
-
-        // Stop applying continuous torque.
-        Instance.m_isIdle = false;
-        foreach (var die in Instance.m_spawnedDiceList)
-        {
-            if (!die.TryGetComponent(out DiceHandler handler))
-            {
-                Debug.LogWarning($"Die prefab [ {die.name} ] does not have a DiceHandler component.");
-                continue;
+                var result = new RollResult(die.Definition, faceIndex, die.name, die.OwnerId);
+                Debug.Log($"Dice result: {result}");
+                self.m_results.Add(result);
             }
 
-            // Launch the die with the calculated direction and force,
-            // and apply a random torque for realism.
-            handler.LaunchDice(
-                direction * force,
-                Random.insideUnitSphere * Instance.m_launchTorqueStrength);
-        }
-    }
+            int settled = self.m_results.Count + self.m_active.Count(d => d.Definition == null && !d.IsSettling);
+            if (settled < self.m_active.Count) return;
 
-    public static void ProcessDiceValue(string dieName, BaseDice.ResourceFace result)
-    {
-        Debug.Log($"Dice result for {dieName}: {result.m_diceFaceIndex}");
-
-        Instance.m_lstRetrievedResource.Add(result);
-        if (Instance.m_lstRetrievedResource.Count != Instance.m_spawnedDiceList.Count)
-        {
-            return;
+            self.CompleteRoll();
         }
 
-        int red = 0;
-        int blue = 0;
-        int yellow = 0;
-
-        // Process the results and update the resources accordingly.
-        foreach (var face in Instance.m_lstRetrievedResource)
+        private void CompleteRoll()
         {
-            switch (face.m_type)
-            {
-                case DiceResultType.Red:
-                    red += face.amount;
-                    break;
-                case DiceResultType.Blue:
-                    blue += face.amount;
-                    break;
-                case DiceResultType.Yellow:
-                    yellow += face.amount;
-                    break;
-            }
+            RestoreGravity();
+            var results = new List<RollResult>(m_results);
+            results.Sort((a, b) => a.OwnerId.CompareTo(b.OwnerId));
+            m_results.Clear();
+
+            var evt = new RollCompletedEvent(results);
+            Debug.Log($"Roll completed: {results.Count} dice, {evt.TotalPips} pips.");
+            EventManager.TriggerEvent(GameEvents.RollCompleted, evt);
+            EventManager.TriggerEvent(GameEvents.DisableDiceLaunch);
         }
 
-        Debug.Log($"Dice result Red:{red} | Yellow:{yellow} | Blue:{blue}");
-
-        EventManager.TriggerEvent("UpdateResources", new Event_ResourceUpdate
+        private void OverrideGravity()
         {
-            red = red,
-            blue = blue,
-            yellow = yellow
-        });
+            if (m_gravityOverridden) return;
+            m_defaultGravity = Physics.gravity;
+            Physics.gravity = m_throwGravity;
+            m_gravityOverridden = true;
+        }
 
-        EventManager.TriggerEvent("DisableDiceLaunch");
-
-        // Removing all result values after processing to prepare for the next dice roll.
-        Instance.m_lstRetrievedResource.Clear();
+        private void RestoreGravity()
+        {
+            if (!m_gravityOverridden) return;
+            Physics.gravity = m_defaultGravity;
+            m_gravityOverridden = false;
+        }
     }
 }

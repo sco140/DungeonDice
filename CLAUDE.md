@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-DungeonDice is a Unity 6 (6000.3.5f2) prototype of a dice-driven party RPG. URP 17 (Forward+), Input System only (legacy Input Manager disabled), uGUI + TextMesh Pro. All C# is in the default `Assembly-CSharp` assembly; shared types live in the `GameUtility` namespace.
+DungeonDice is a Unity 6 (6000.3.5f2) prototype of a dice-driven party RPG. URP 17 (Forward+), Input System only (legacy Input Manager disabled), uGUI + TextMesh Pro. All game code lives in the `DungeonDice` assembly (`Assets/_Project/Scripts/DungeonDice.asmdef`), with `DungeonDice.Editor` for editor tooling and two test assemblies. New code uses `DungeonDice.<System>` namespaces; the older scripts still use `GameUtility` or no namespace until they are touched. Only template leftovers remain in `Assembly-CSharp`.
 
 Deeper references, read before non-trivial changes:
 
@@ -26,8 +26,8 @@ Deeper references, read before non-trivial changes:
 
 - **One scene** for the whole run: `Assets/_Project/Scenes/Prototype.unity`. Hero Pick, Map, Combat and Run End are screens toggled by a run-state controller, not separate scenes. It is Build Settings index 0; `SampleScene` stays listed but disabled as the legacy reference.
 - **Layout:** `Assets/_Project/{Scripts/<System>, Scenes, Data, Prefabs, UI, Tests}`. Existing assets under `Assets/Dice`, `Assets/Scripts`, `Assets/Scriptable Objects` are referenced in place, not moved.
-- **Namespaces:** new code in `DungeonDice.<System>` (e.g. `DungeonDice.Dice`, `DungeonDice.Map`, `DungeonDice.Combat`, `DungeonDice.Run`), still in Assembly-CSharp. Legacy `GameUtility` types stay until touched.
-- **Tests:** `Assets/_Project/Tests/EditMode` and `Assets/_Project/Tests/PlayMode`, each with its own asmdef referencing `Assembly-CSharp`. Pure logic (roll results, modifiers, fork odds, bracket coverage) gets EditMode tests; anything needing the dice box or scene objects gets PlayMode tests. Run with `unity test . --mode EditMode` / `--mode PlayMode`.
+- **Assemblies and namespaces:** all game code is in the `DungeonDice` asmdef (test asmdefs cannot reference `Assembly-CSharp`, which is why the legacy scripts were moved in). New code uses `DungeonDice.<System>` (`Core`, `Dice`, `Combat`, `Map`, `Run`); legacy `GameUtility` and global-namespace types move into a namespace when touched. Editor-only code goes in `Assets/_Project/Scripts/Editor` (`DungeonDice.Editor` asmdef). Internals are visible to both test assemblies via `AssemblyInfo.cs`.
+- **Tests:** `Assets/_Project/Tests/EditMode` and `Assets/_Project/Tests/PlayMode`, asmdefs referencing `DungeonDice`. Pure logic (roll results, modifiers, fork odds, bracket coverage) gets EditMode tests; anything needing components, physics or scene objects gets PlayMode tests. Run them through the Editor commands listed above; PlayMode runs must be async.
 - **Numbers are placeholders.** HP, damage, enemy stats, heal amounts and bracket thresholds live in ScriptableObjects and are first guesses for tuning: heroes ~20–30 HP, regular enemies 10–15, elite 25, boss 40; Rest heals 30% max HP; Combat nodes have 2 regulars, Elite and Boss nodes have 1.
 - **Mana pool** resets to 0 at the start of each combat, carries across turns within it, no cap. Banking a die = 1 mana of its hero's color; a signature skill costs 3 of its color.
 - **Status semantics (first pass):** Burn N deals N at the start of the target's turn and decays by 1. Poison N deals N at end of turn and does not decay. Weaken = −1 to the target's damage for one turn. Hex = target takes +1 from all sources this turn. Taunt redirects enemy single-target intents to the taunter this turn. Shield absorbs damage and expires at the end of the enemy turn.
@@ -64,7 +64,15 @@ Notes:
 - `recompile` returns immediately with `status: compiling`; completion must be polled with `recompile_status`.
 - `eval` is reliable. `eval_file` has hung indefinitely on a large script once; prefer several short `eval` calls or read serialized values from the YAML.
 - If the Editor will not connect, suspect Safe Mode from a compile error (`unity pipeline list`), not a closed Editor.
-- Tests: `unity test . --mode EditMode` / `unity test . --mode PlayMode` (see Prototype conventions for where tests live). Exit 8 = tests failed; any other non-zero = the run itself failed.
+- Tests, with the Editor open (the normal case):
+  ```bash
+  unity command list_tests --format json
+  unity command run_tests --mode editor --format json                   # EditMode: synchronous, returns Summary + Results
+  unity command run_tests --mode playmode --async_tests true --format json  # PlayMode MUST be async (play mode reloads the domain)
+  unity command test_status --format json                               # poll until status == completed
+  ```
+  `unity test . --mode EditMode|PlayMode` is the headless alternative for CI (exit 8 = tests failed; other non-zero = the run itself failed).
+- Authoring data: `DungeonDice.EditorTools.DiceAssetAuthoring.CreateAll()` (menu **DungeonDice ▸ Author Prototype Dice**, or via `eval`) rewrites the hero/traversal `DieDefinition` assets from the proposal tables in place, keeping GUIDs. Extend it rather than hand-editing `.asset` files.
 - Build: `unity build . --target StandaloneWindows64` (nothing is configured for builds yet; only `SampleScene` is in Build Settings).
 
 ## Repository hygiene
@@ -81,28 +89,28 @@ Notes:
 
 **Singleton managers** all follow the same shape: static `Instance`, duplicate-destroying `Awake`, register listeners in `Awake`, unregister in `OnDestroy`. `EventManager` and `DiceManager` are `DontDestroyOnLoad` in anticipation of multi-scene runs.
 
-**The current gameplay loop is a mana roll:**
+**The dice box loop** (`Assets/_Project/Scripts/Dice/`, all event names in `GameEvents`):
 
 ```
-GameManager.Start ─EnableDiceLaunch(count)→ DiceRollerController (shows overlay) ─SetUpDice→ DiceManager (spawns/pools D6 prefabs)
-player drags Panel ─LaunchDice(Vector3)→ DiceManager → DiceHandler.LaunchDice per die (physics)
-die sleeps → DiceHandler.GetFaceUp → BaseDice face → DiceManager.ProcessDiceValue (static call, waits for all dice)
-→ UpdateResources → PlayerTeamManager (Before hook → overwrite red/blue/yellow → ResourceUIUpdate → ResourceManager HUD → After hook)
-→ DisableDiceLaunch (hides overlay). Nothing calls StartTurn/EndTurn, so the game stops here.
+GameManager.Start ─EnableDiceLaunch(count)→ DiceRollerController (shows overlay) ─SetUpDice→ DiceManager (pools D6 prefabs, builds the active list)
+player drags Panel ─LaunchDice(Vector3)→ DiceManager (overrides gravity) → DiceHandler.LaunchDice per active die (physics)
+die sleeps → DiceHandler.GetFaceUp → DiceManager.ProcessDiceValue(die, faceIndex) → RollResult per die
+all active dice settled → DiceManager.CompleteRoll: restore gravity → RollCompleted(RollCompletedEvent) → DisableDiceLaunch
 ```
+
+`DiceManager` knows nothing about mana or combat. Consumers subscribe to `RollCompleted`. In the legacy SampleScene the consumer is `GameManager`, which previews the "bank it" rule by granting 1 mana of each die's color to `PlayerTeamManager` (Before hook → overwrite pool → `ResourceUIUpdate` → HUD → After hook). Nothing calls `StartTurn`/`EndTurn` yet. `SetUpDice(IReadOnlyList<DieDefinition>)` injects one definition per die; `SetUpDice(int)` keeps whatever the prefab carries.
 
 The **face-up result is decided by PhysX**, not by RNG, and the proposal keeps it that way: the player's drag-throw stays. Once dice settle, the face read becomes a **logical roll result**; modifiers (Nudge, Flip, Mirror, Loaded Dice) change that result and the die re-orients to show the new face. Lock means the die is not re-thrown. Randomness **outside** the throw (enemy intents, rewards, map) must go through one seeded service so runs are reproducible apart from the dice. `UnityEngine.Random` in `DiceManager` is cosmetic torque only and may stay unseeded.
 
-**Data model.** `BaseDice` (ScriptableObject, `Assets/Scriptable Objects/Dice/`) is six `{faceIndex, DiceResultType, amount}` faces; the single asset maps faces to Red/Blue/Yellow mana. `DiceHandler` hardcodes which local normal is which face index (opposite faces sum to 7). `BaseSkill` and `BaseCharacters` (in `BaseCharacter.cs`) are abstract with no concrete types or assets and are unused at runtime.
+**Die data model** (`DungeonDice.Dice`). `DieDefinition` (ScriptableObject) is the shared model for hero and traversal dice: `displayName`, `DieColor` (None for traversal), six `DieFace`s, a `visualMaterial` slot. A `DieFace` is a label plus `FaceEffectEntry[]` of `{FaceEffectKind, value}`; compound faces have several entries and traversal faces have one `Number` entry (`Pips`). Assets live in `Assets/_Project/Data/Dice/{Heroes,Traversal}` and are authored by `DiceAssetAuthoring`. `RollResult` is the logical outcome of one settled die (`RolledFaceIndex` physical, `FaceIndex` after `IDieModifier`s: Nudge, Flip, ChooseResult, Lock); `RollCompletedEvent` carries one per die. `DieDefinition.WithFaceReplaced` returns an upgraded runtime copy; assets are never mutated at runtime. `DiceHandler` owns the physical face table (+Z=1, +Y=2, −X=3, +X=4, −Y=5, −Z=6) and `ShowFace(i)` re-orients a die to match a modified result. `RollService` (`DungeonDice.Core`) is the seeded RNG for everything except the throw. `BaseSkill` and `BaseCharacters` (in `BaseCharacter.cs`) are still abstract with no concrete types or assets.
 
 **Decided direction (from the proposal's "Decisions after codebase review").** The legacy mana economy is kept, but reshaped into **hybrid mana, "use it or bank it"**: every hero-die face is an action, and any die can instead be banked for 1 mana in its hero's color. Each hero has **one signature skill** costing 3 mana of its color, so `BaseSkill` survives as the signature-skill type and the Red/Blue/Yellow team pool and HUD stay. Colors are domains: **Red** = damage and block, **Blue** = statuses (Burn, Poison, Weaken, Hex), **Yellow** = dice modification (hero and traversal). One die per hero in the prototype, but `HeroDefinition` keeps a *list* of dice for future rewards. **Per-hero HP**; a dead hero's die leaves the roll and its signature is unavailable. Hero and traversal dice share one die/face model so modifiers can target either.
 
 ## Known traps in the current code
 
-- `DiceManager.m_isIdle` is never reset after a launch, so a second roll in one Play session is refused.
-- `DiceManager.SetUpDice` disables surplus pooled dice but keeps them in `m_spawnedDiceList`; `ProcessDiceValue` waits for a result from every list entry, so any roll with fewer dice than the pool never completes, and `LaunchDice` throws on the inactive ones.
-- `DiceManager` sets `Physics.gravity` to −12 and solver iterations to 12 globally at runtime and never restores them.
-- `DieHandler.cs` and `LaunchDice.cs` are dead, superseded by `DiceManager` + `DiceRollerController`. `GameUtilities.DiceFaceValue` is an unused duplicate of `DiceResultType`. `GameUtilities.Mana` has a constructor bug (Generic takes the blue value) and wraps a `Dictionary`, which Unity cannot serialize.
+- `GameUtilities.Mana` wraps a `Dictionary`, which Unity cannot serialize, so `BaseSkill.m_manaCost` neither shows in the Inspector nor persists. Replace it when `BaseSkill` is trimmed to signature skills.
+- `PlayerTeamManager.UpdateResources` overwrites the mana pool with the incoming values rather than adding to them.
+- `DiceRollerController` and `PlayerTeamManager`/`ResourceManager` still register events with raw string literals; migrate to `GameEvents` when touched.
 - `UI_SkillMenu` is active at scene load, never hidden, and its four buttons have no `onClick` handlers.
 - The scene's `InputSystemUIInputModule` uses the Input System package's built-in `DefaultInputActions`, not `Assets/InputSystem_Actions.inputactions`. No gameplay code reads the project actions asset; all input is uGUI pointer events (`IPointerDown/Up/ClickHandler`).
 - `Assets/TextMesh Pro/Examples & Extras` and `Assets/TutorialInfo` are template leftovers, not game code.
