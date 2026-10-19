@@ -241,7 +241,7 @@ namespace DungeonDice.Tests
             state.UseDie(0, 0); state.UseDie(1, 0); state.UseDie(2, 0);
             Assert.AreEqual(7, state.Enemies[0].Statuses.Total);
             Assert.IsTrue(state.CastSignature(0, 0));
-            Assert.AreEqual(13, state.Enemies[0].Health, "7 stacks consumed as damage");
+            Assert.AreEqual(14, state.Enemies[0].Health, "7 stacks as damage, 1 absorbed by the Block the enemy raised last turn");
             Assert.AreEqual(0, state.Enemies[0].Statuses.Total);
             Assert.AreEqual(0, state.Blue);
             run.Clear();

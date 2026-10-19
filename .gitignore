@@ -166,3 +166,6 @@ x86/
 *.vsix
 Packages/packages-lock.json
 Packages/manifest.json
+
+# Unity Test Framework temporary bootstrap scene (exists only while PlayMode tests run)
+/Assets/InitTestScene*
