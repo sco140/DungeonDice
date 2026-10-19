@@ -1,0 +1,21 @@
+{
+    "name": "DungeonDice.Tests.PlayMode",
+    "rootNamespace": "DungeonDice.Tests",
+    "references": [
+        "DungeonDice",
+        "UnityEngine.TestRunner"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "nunit.framework.dll"
+    ],
+    "autoReferenced": false,
+    "defineConstraints": [
+        "UNITY_INCLUDE_TESTS"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

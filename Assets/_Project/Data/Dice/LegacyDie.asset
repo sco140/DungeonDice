@@ -10,7 +10,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 5859190561171f841b40a745f8d35706, type: 3}
-  m_Name: BaseDice
+  m_Name: LegacyDie
   m_EditorClassIdentifier: Assembly-CSharp::BaseDice
   m_lstDieFaces:
   - m_diceFaceIndex: 1

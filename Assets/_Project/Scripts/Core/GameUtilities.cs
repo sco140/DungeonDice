@@ -1,17 +1,10 @@
-﻿using System;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
 namespace GameUtility
 {
-    public enum DiceFaceValue
-    {
-        RED,
-        BLUE,
-        YELLOW,
-        BLANK,
-    }
     public enum ManaColor
     {
         Generic,
@@ -34,7 +27,7 @@ namespace GameUtility
         {
             m_dicMana = new Dictionary<ManaColor, uint>
             {
-                { ManaColor.Generic, blue },
+                { ManaColor.Generic, generic },
                 { ManaColor.Red, red },
                 { ManaColor.Yellow, yellow },
                 { ManaColor.Blue, blue },
