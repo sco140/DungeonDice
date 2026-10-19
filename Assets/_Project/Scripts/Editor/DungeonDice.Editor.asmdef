@@ -2,7 +2,10 @@
     "name": "DungeonDice.Editor",
     "rootNamespace": "DungeonDice.EditorTools",
     "references": [
-        "DungeonDice"
+        "DungeonDice",
+        "Unity.InputSystem",
+        "Unity.TextMeshPro",
+        "UnityEngine.UI"
     ],
     "includePlatforms": [
         "Editor"

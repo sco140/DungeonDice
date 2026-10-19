@@ -1,0 +1,26 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6e8e63224ba3bd94ba4f46ded33d19d6, type: 3}
+  m_Name: Trickster
+  m_EditorClassIdentifier: DungeonDice::DungeonDice.Run.HeroDefinition
+  displayName: Trickster
+  color: 3
+  maxHealth: 24
+  playableInPrototype: 1
+  description: 'Bends dice: nudge, flip, reroll, mirror. Works on traversal rolls
+    too.'
+  dice:
+  - {fileID: 11400000, guid: 7d298deb40a21754b99158ec7702715c, type: 2}
+  signatureName: Loaded Dice
+  signatureDescription: Set any one die, hero or traversal, to a chosen face.
+  signatureSkill: {fileID: 0}
+  portrait: {fileID: 0}

@@ -26,6 +26,10 @@ namespace DungeonDice.Core
         /// <summary>DungeonDice.Dice.RollResult. A modifier changed one settled result; the die was re-oriented.</summary>
         public const string RollResultModified = "RollResultModified";
 
+        // --- Run ------------------------------------------------------------------------
+        /// <summary>DungeonDice.Run.RunPhase. The run moved to a new screen.</summary>
+        public const string RunPhaseChanged = "RunPhaseChanged";
+
         // --- Legacy mana loop (SampleScene) -----------------------------------------
         /// <summary>Event_ResourceUpdate. Request a change to the team mana pool.</summary>
         public const string UpdateResources = "UpdateResources";
