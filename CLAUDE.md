@@ -88,6 +88,7 @@ Notes:
 
 - `Library/`, `Temp/`, `Logs/`, `obj/`, `UserSettings/`, `*.csproj`, `*.sln`, `*.slnx` are ignored. Never commit them.
 - `.gitattributes` normalises `*.cs` and scene/prefab/asset/meta files to LF, matching what the Editor writes. Don't change line-ending rules without asking.
+- **One ScriptableObject or MonoBehaviour class per file, file named after the class.** Unity binds assets and scene components to scripts by file name; a class declared in another file saves fine (`CreateInstance` works) but its asset loads from disk with `m_Script: {fileID: 0}`, i.e. null. Plain `[Serializable]` classes and enums can share a file.
 - Every file under `Assets/` has a `.meta` sibling. Create or move assets through the Editor so metas stay consistent; if a file is created from the shell, Unity generates the meta on the next refresh, and that meta must be committed too.
 
 ## Architecture (big picture)
