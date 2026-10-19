@@ -237,6 +237,8 @@ namespace DungeonDice.UI
             var profile = RunController.Instance.TraversalProfile;
             if (profile != null) EventManager.TriggerEvent(GameEvents.SetDiceBoxProfile, profile);
             DiceManager.SetUpDice(dice);
+            var roller = DiceManager.Instance.GetComponentInChildren<DiceRollerController>(true);
+            if (roller != null) roller.SetHint($"Fork at {node.name}: drag across the box to throw {dice.Count} {(dice.Count == 1 ? "die" : "dice")}");
             EventManager.TriggerEvent(GameEvents.OpenDiceBox);
             m_awaitingRoll = true;
             Refresh();

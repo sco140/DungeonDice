@@ -165,9 +165,39 @@ namespace DungeonDice.EditorTools
             fitter.aspectRatio = 1f; // the render texture is square
             view.SetActive(false);
 
+            // Instruction banner across the top of the overlay, on its own solid band so it never
+            // fights the faint game UI still visible through the dim.
+            var bandGo = new GameObject("HintBand", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            bandGo.transform.SetParent(panel.transform, false);
+            var bandRt = bandGo.GetComponent<RectTransform>();
+            bandRt.anchorMin = new Vector2(0f, 1f);
+            bandRt.anchorMax = new Vector2(1f, 1f);
+            bandRt.pivot = new Vector2(0.5f, 1f);
+            bandRt.anchoredPosition = Vector2.zero;
+            bandRt.sizeDelta = new Vector2(0f, 96f);
+            var band = bandGo.GetComponent<Image>();
+            band.color = new Color(0.06f, 0.05f, 0.04f, 0.96f);
+            band.raycastTarget = false;
+
+            var hintGo = new GameObject("Hint", typeof(RectTransform), typeof(CanvasRenderer), typeof(TMPro.TextMeshProUGUI));
+            hintGo.transform.SetParent(bandGo.transform, false);
+            var hintRt = hintGo.GetComponent<RectTransform>();
+            hintRt.anchorMin = Vector2.zero;
+            hintRt.anchorMax = Vector2.one;
+            hintRt.offsetMin = new Vector2(24f, 8f);
+            hintRt.offsetMax = new Vector2(-24f, -8f);
+            var hint = hintGo.GetComponent<TMPro.TextMeshProUGUI>();
+            hint.text = DiceRollerController.DefaultHint;
+            hint.fontSize = 34f;
+            hint.alignment = TMPro.TextAlignmentOptions.Center;
+            hint.color = new Color(0.95f, 0.85f, 0.55f, 1f);
+            hint.raycastTarget = false;
+            bandGo.SetActive(false); // shown with the overlay
+
             var controller = panel.GetComponent<DiceRollerController>();
             controller.m_objDiceCameraPanel = view;
             controller.m_cBackgroundPanel = dim;
+            controller.m_hintLabel = hint;
             return dim;
         }
 

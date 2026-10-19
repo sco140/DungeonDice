@@ -16,7 +16,7 @@ namespace DungeonDice.UI
         public static readonly Color PanelMid = new(0.18f, 0.18f, 0.22f, 1f);
         public static readonly Color PanelLocked = new(0.14f, 0.14f, 0.14f, 1f);
         public static readonly Color TextLight = new(0.92f, 0.92f, 0.9f, 1f);
-        public static readonly Color TextDim = new(0.55f, 0.55f, 0.55f, 1f);
+        public static readonly Color TextDim = new(0.72f, 0.72f, 0.7f, 1f);
         public static readonly Color Accent = new(0.85f, 0.65f, 0.25f, 1f);
 
         /// <summary>A rect that fills its parent.</summary>
@@ -48,7 +48,12 @@ namespace DungeonDice.UI
             return go.GetComponent<RectTransform>();
         }
 
-        public static VerticalLayoutGroup Vertical(RectTransform rt, float spacing = 8f, int padding = 12, TextAnchor align = TextAnchor.UpperCenter, bool controlHeight = false)
+        /// <summary>
+        /// A column that sizes its children: TMP labels take their text height, buttons and rows take
+        /// their LayoutElement preferred/flexible height. With <paramref name="controlHeight"/> off the
+        /// group leaves every child at its default 100 px rect and the content piles up, so keep it on.
+        /// </summary>
+        public static VerticalLayoutGroup Vertical(RectTransform rt, float spacing = 8f, int padding = 12, TextAnchor align = TextAnchor.UpperCenter, bool controlHeight = true)
         {
             var group = rt.gameObject.AddComponent<VerticalLayoutGroup>();
             group.spacing = spacing;
@@ -116,14 +121,22 @@ namespace DungeonDice.UI
 
             var label = Label(go.transform, "Text", text, fontSize);
             Stretch(label.rectTransform, 6f);
+            // Buttons are rows' children: never let them soak up leftover height.
+            layout.flexibleHeight = 0f;
             return button;
         }
 
+        /// <summary>
+        /// Pin a row to one height. flexibleHeight must be set to 0 explicitly: a layout group that
+        /// force-expands its children reports itself as flexible, and an unset (-1) LayoutElement value
+        /// does not override that, so the row would grab leftover space and balloon.
+        /// </summary>
         public static LayoutElement FixedHeight(RectTransform rt, float height)
         {
             var layout = rt.gameObject.GetComponent<LayoutElement>() ?? rt.gameObject.AddComponent<LayoutElement>();
             layout.preferredHeight = height;
             layout.minHeight = height;
+            layout.flexibleHeight = 0f;
             return layout;
         }
 

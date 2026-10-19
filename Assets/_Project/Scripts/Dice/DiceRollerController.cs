@@ -20,6 +20,16 @@ namespace DungeonDice.Dice
         public GameObject m_objDiceCameraPanel;
         [Tooltip("Full-screen dim behind the dice; disabling it also stops this panel receiving drags.")]
         public Image m_cBackgroundPanel;
+        [Tooltip("Instruction shown on the overlay (what this throw is for). Optional.")]
+        public TMPro.TMP_Text m_hintLabel;
+
+        public const string DefaultHint = "Drag across the box to throw the dice";
+
+        /// <summary>Set the instruction shown on the overlay; null restores the default.</summary>
+        public void SetHint(string text)
+        {
+            if (m_hintLabel != null) m_hintLabel.text = string.IsNullOrEmpty(text) ? DefaultHint : text;
+        }
 
         private readonly List<int> m_rerollSelection = new();
         private Vector2 m_initialMousePosition;
@@ -40,7 +50,17 @@ namespace DungeonDice.Dice
             {
                 Debug.LogError("DiceRollerController: dice camera panel is not assigned.");
                 enabled = false;
+                return;
             }
+            // Keep the hint in step with the dim, whatever state the prefab was saved in.
+            if (m_hintLabel && m_cBackgroundPanel) HintRoot().SetActive(m_cBackgroundPanel.enabled);
+        }
+
+        /// <summary>The object to toggle for the hint: its band if it has one, else the label itself.</summary>
+        private GameObject HintRoot()
+        {
+            var parent = m_hintLabel.transform.parent;
+            return parent != null && parent != m_cBackgroundPanel.transform ? parent.gameObject : m_hintLabel.gameObject;
         }
 
         private void OnDestroy()
@@ -74,6 +94,8 @@ namespace DungeonDice.Dice
         {
             if (m_objDiceCameraPanel) m_objDiceCameraPanel.SetActive(visible);
             if (m_cBackgroundPanel) m_cBackgroundPanel.enabled = visible;
+            // The hint (and its band, its parent) is a child of the panel, so it must be hidden explicitly along with the dim.
+            if (m_hintLabel) HintRoot().SetActive(visible);
         }
 
         public void OnPointerDown(PointerEventData eventData)

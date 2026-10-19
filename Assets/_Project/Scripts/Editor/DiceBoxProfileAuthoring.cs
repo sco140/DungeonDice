@@ -27,10 +27,11 @@ namespace DungeonDice.EditorTools
             AuthoringUtil.EnsureFolder(ProfileDir);
             AuthoringUtil.EnsureFolder(MaterialDir);
 
-            // Combat keeps today's look: the legacy floor material and plain URP walls, warm light.
+            // Combat: a dark red felt tray with warm light. (The legacy DiceMat floor renders magenta in
+            // the Game view despite reporting URP Lit, so the tray uses authored materials like Traversal.)
             var combat = Upsert(CombatProfilePath, "Combat");
-            combat.floorMaterial = AssetDatabase.LoadAssetAtPath<Material>(LegacyFloorPath);
-            combat.wallMaterial = AssetDatabase.LoadAssetAtPath<Material>(UrpLitPath);
+            combat.floorMaterial = AuthoringUtil.UpsertLitMaterial($"{MaterialDir}/Tray_Combat_Floor.mat", new Color(0.30f, 0.09f, 0.09f), 0.2f);
+            combat.wallMaterial = AuthoringUtil.UpsertLitMaterial($"{MaterialDir}/Tray_Combat_Wall.mat", new Color(0.14f, 0.07f, 0.07f), 0.15f);
             combat.defaultDieMaterial = AssetDatabase.LoadAssetAtPath<Material>(RoughRedPath);
             combat.cameraLocalPosition = new Vector3(1f, 32.9f, -10.1f);
             combat.cameraLocalEuler = new Vector3(67.35f, 0f, 0f);
@@ -38,7 +39,7 @@ namespace DungeonDice.EditorTools
             combat.lightColor = new Color(1f, 0.85f, 0.7f);
             combat.lightIntensity = 1.5f;
             combat.lightRange = 60f;
-            combat.overlayColor = new Color(0.05f, 0f, 0f, 0.65f);
+            combat.overlayColor = new Color(0.05f, 0f, 0f, 0.9f); // opaque enough that the covered UI does not compete with the hint
             EditorUtility.SetDirty(combat);
 
             // Traversal: mossy stone tray, cool light, camera pulled up for a map-table feel.
@@ -52,7 +53,7 @@ namespace DungeonDice.EditorTools
             traversal.lightColor = new Color(0.7f, 0.9f, 1f);
             traversal.lightIntensity = 1.2f;
             traversal.lightRange = 60f;
-            traversal.overlayColor = new Color(0f, 0.03f, 0.08f, 0.7f);
+            traversal.overlayColor = new Color(0f, 0.03f, 0.08f, 0.9f);
             EditorUtility.SetDirty(traversal);
 
             AssetDatabase.SaveAssets();
@@ -117,6 +118,7 @@ namespace DungeonDice.EditorTools
             }
             else
             {
+                material.shader = source.shader; // follow the source if it was upgraded (e.g. to URP Lit)
                 material.CopyPropertiesFromMaterial(source);
             }
             material.SetColor("_BaseColor", baseColor);

@@ -13,8 +13,8 @@ MonoBehaviour:
   m_Name: Combat
   m_EditorClassIdentifier: DungeonDice::DungeonDice.Dice.DiceBoxProfile
   displayName: Combat
-  floorMaterial: {fileID: 2100000, guid: ccf2efcee2a7a9c4aa4daa433d46bf7f, type: 2}
-  wallMaterial: {fileID: 2100000, guid: 31321ba15b8f8eb4c954353edc038b1d, type: 2}
+  floorMaterial: {fileID: 2100000, guid: 1798265916ac3284b9848675c5c7f2e7, type: 2}
+  wallMaterial: {fileID: 2100000, guid: 2b597b75eb2d4e042a813704f333fb3a, type: 2}
   defaultDieMaterial: {fileID: 2100000, guid: ca1eda824ec216941b17f26ea3a0693f, type: 2}
   cameraLocalPosition: {x: 1, y: 32.9, z: -10.1}
   cameraLocalEuler: {x: 67.35, y: 0, z: 0}
@@ -22,7 +22,7 @@ MonoBehaviour:
   lightColor: {r: 1, g: 0.85, b: 0.7, a: 1}
   lightIntensity: 1.5
   lightRange: 60
-  overlayColor: {r: 0.05, g: 0, b: 0, a: 0.65}
+  overlayColor: {r: 0.05, g: 0, b: 0, a: 0.9}
   throwClip: {fileID: 0}
   settleClip: {fileID: 0}
   volume: 1

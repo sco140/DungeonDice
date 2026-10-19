@@ -22,7 +22,7 @@ MonoBehaviour:
   lightColor: {r: 0.7, g: 0.9, b: 1, a: 1}
   lightIntensity: 1.2
   lightRange: 60
-  overlayColor: {r: 0, g: 0.03, b: 0.08, a: 0.7}
+  overlayColor: {r: 0, g: 0.03, b: 0.08, a: 0.9}
   throwClip: {fileID: 0}
   settleClip: {fileID: 0}
   volume: 1

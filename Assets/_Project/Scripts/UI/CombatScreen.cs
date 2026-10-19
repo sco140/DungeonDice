@@ -103,6 +103,7 @@ namespace DungeonDice.UI
             m_ownerToSlot.Clear();
             m_ownerToSlot.AddRange(slots);
             DiceManager.SetUpDice(dice);
+            Roller()?.SetHint($"Turn {m_state.Turn}: drag across the box to throw your {dice.Count} hero {(dice.Count == 1 ? "die" : "dice")}");
             EventManager.TriggerEvent(GameEvents.OpenDiceBox);
             m_waitingForThrow = true;
             Refresh();
@@ -130,7 +131,9 @@ namespace DungeonDice.UI
         {
             if (m_state == null || !m_state.CanReroll || m_rerollSelection.Count == 0) return;
             var owners = m_rerollSelection.Select(OwnerFor).Where(o => o >= 0).ToList();
-            Roller()?.SetRerollSelection(owners);
+            var roller = Roller();
+            roller?.SetRerollSelection(owners);
+            roller?.SetHint($"Drag to re-throw {owners.Count} selected {(owners.Count == 1 ? "die" : "dice")}; the others stay put");
             EventManager.TriggerEvent(GameEvents.OpenDiceBox);
             m_waitingForThrow = true;
             Refresh();
@@ -148,7 +151,9 @@ namespace DungeonDice.UI
         {
             int owner = OwnerFor(slot);
             if (owner < 0) return;
-            Roller()?.SetRerollSelection(new[] { owner });
+            var roller = Roller();
+            roller?.SetRerollSelection(new[] { owner });
+            roller?.SetHint($"Reroll ally: drag to re-throw {m_state.Hero(slot).Name}'s die");
             EventManager.TriggerEvent(GameEvents.OpenDiceBox);
             m_waitingForThrow = true;
         }

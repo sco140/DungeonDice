@@ -65,6 +65,7 @@ Notes:
 - `recompile` returns immediately with `status: compiling`; completion must be polled with `recompile_status`.
 - `eval` is reliable. `eval_file` has hung indefinitely on a large script once; prefer several short `eval` calls or read serialized values from the YAML.
 - If the Editor will not connect, suspect Safe Mode from a compile error (`unity pipeline list`), not a closed Editor.
+- **Seeing the game.** An unfocused Editor freezes Play mode at frame 1 and the Game view stops repainting, so every screenshot comes out identical. Before a visual check: `unity command set_autotick` (once per session), `unity command editor_focus`, then after `editor_play` run `eval 'UnityEngine.Application.runInBackground = true;'`. Then `unity command capture_game_view --width 1920 --height 1080 --save_path Temp/ux/<name>.png` and Read the PNG. `save_path` is relative to `Assets/`, so delete `Assets/Temp` (via `delete_asset`) when done or the captures get imported as textures. `eval` can drive the screens between captures (`RunController.Instance.StartRun(...)`, `MapScreen.StartForkRoll()`, `DiceManager.LaunchDice(...)`, `CombatScreen.KeepAll()`...). `docs/screenshots/` holds the last reviewed set.
 - Tests, with the Editor open (the normal case):
   ```bash
   unity command list_tests --format json
@@ -134,7 +135,17 @@ The **face-up result is decided by PhysX**, not by RNG, and the proposal keeps i
 
 **Decided direction (from the proposal's "Decisions after codebase review").** The legacy mana economy is kept, but reshaped into **hybrid mana, "use it or bank it"**: every hero-die face is an action, and any die can instead be banked for 1 mana in its hero's color. Each hero has **one signature skill** costing 3 mana of its color, so `BaseSkill` survives as the signature-skill type and the Red/Blue/Yellow team pool and HUD stay. Colors are domains: **Red** = damage and block, **Blue** = statuses (Burn, Poison, Weaken, Hex), **Yellow** = dice modification (hero and traversal). One die per hero in the prototype, but `HeroDefinition` keeps a *list* of dice for future rewards. **Per-hero HP**; a dead hero's die leaves the roll and its signature is unavailable. Hero and traversal dice share one die/face model so modifiers can target either.
 
+## UI layout rules (code-built uGUI via `UiFactory`)
+
+- A column is `UiFactory.Vertical` with child height control **on** (the default). Every child then needs a height source: TMP labels size to their text, buttons and rows carry a `LayoutElement`. With control off, children keep a 100 px default rect and text piles up.
+- A row that must stay one height uses `UiFactory.FixedHeight`, which also sets `flexibleHeight = 0`. A `HorizontalLayoutGroup` that force-expands its children reports itself as flexible, and an unset LayoutElement value (−1) does not override that, so without the explicit 0 the row grabs leftover space and balloons.
+- The one flexible child of a column gets `UiFactory.Flexible`; everything else is fixed or text-sized.
+- The default TMP font (LiberationSans SDF) lacks arrows and check marks; use ASCII markers. `→` renders fine, `▶` and `✓` do not.
+- Everything drawn under the dice overlay is covered while it is open, so instructions for a throw go on the overlay itself (`DiceRollerController.SetHint`), and anything the overlay toggles must include that hint label.
+
 ## Known traps in the current code
+
+- The Dice_6 pack materials shipped on the built-in **Autodesk Interactive** shader (magenta in URP). `MaterialUpgradeAuthoring.UpgradeDicePack()` converted them to URP Lit with their maps; run it again if the pack is re-imported. The legacy `Assets/Dice/DiceMat.mat` also renders magenta despite referencing URP Lit, so neither dice box profile uses it.
 
 - `GameUtilities.Mana` wraps a `Dictionary`, which Unity cannot serialize, so `BaseSkill.m_manaCost` neither shows in the Inspector nor persists. Replace it when `BaseSkill` is trimmed to signature skills.
 - `PlayerTeamManager.UpdateResources` overwrites the mana pool with the incoming values rather than adding to them.
