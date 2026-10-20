@@ -340,14 +340,24 @@ namespace DungeonDice.Combat
 
         // ---------------------------------------------------------------- signatures
 
+        /// <summary>
+        /// Design rule: signatures are cast after the dice settle and before any die is used or banked,
+        /// so dice-changing signatures (Loaded Dice) act on the current roll. The window opens with the
+        /// Act phase and closes at the first use or bank.
+        /// </summary>
+        public bool SignatureWindowOpen => Phase == CombatPhase.Act && PendingAllyReroll < 0 && !m_dice.Any(d => d.Spent);
+
         public bool CanCastSignature(int slot)
         {
             var hero = Hero(slot);
-            return Phase == CombatPhase.Act && PendingAllyReroll < 0 && hero is { IsAlive: true }
+            return SignatureWindowOpen && hero is { IsAlive: true }
                    && !hero.SignatureUsedThisTurn
                    && hero.Run.Definition.signatureKind != SignatureKind.None
                    && Mana(hero.Color) >= SignatureCost;
         }
+
+        /// <summary>Test hook: put mana in the pool without banking dice.</summary>
+        internal void GrantManaForTests(DieColor color, int amount) => AddMana(color, amount);
 
         public static TargetKind SignatureTargetFor(SignatureKind kind) => kind switch
         {

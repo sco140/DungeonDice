@@ -48,7 +48,7 @@ Each hero is a d6 with custom faces in one color domain. The prototype ships 3 c
 | --- | --- | --- | --- |
 | Knight | Red | Strike 3, Strike 3, Shield 4, Shield 4, Taunt + Shield 2, Strike 5 | Bulwark: Shield 6 to all allies |
 | Arcanist | Blue | Burn 2, Burn 2, Poison 3, Weaken, Hex (target takes +1 from all sources this turn), Fizzle | Detonate: consume a target's statuses, deal damage equal to their stacks |
-| Trickster | Yellow | Nudge ±1, Nudge ±1, Flip, Reroll ally, Mirror (copy another die), Jab 2 | Loaded Dice: set any one die, hero or traversal, to a chosen face |
+| Trickster | Yellow | Nudge ±1, Nudge ±1, Flip, Reroll ally, Mirror (copy another die), Jab 2 | Loaded Dice: after dice settle, change any one rolled die (hero or traversal) to any face |
 
 **Dual-color classes (future, shown locked)**
 
@@ -69,7 +69,7 @@ Each turn the player throws all 3 hero dice in the dice box, then decides per di
 1. **Throw** all living heroes' dice (physical drag-throw).
 2. **Reroll once:** the player picks which dice to re-throw; the rest stay put.
 3. **Use or bank** each die: resolve its face (attack, block, status, modify), or bank it for 1 mana of its hero's color.
-4. **Signature skills:** any hero can cast its one signature skill if the team mana pool covers its cost.
+4. **Signature skills:** any hero can cast its one signature skill if the team mana pool covers its cost. Signatures are cast after the dice settle and before faces are used or banked, so effects that change dice (like Loaded Dice) work on the current roll.
 5. **Enemy turn:** enemies act on the intents they telegraphed (Slay the Spire style).
 
 HP is per hero. A dead hero's die leaves the roll, and its signature skill is unavailable.

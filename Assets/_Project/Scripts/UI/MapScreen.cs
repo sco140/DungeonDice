@@ -37,6 +37,12 @@ namespace DungeonDice.UI
         private bool m_built;
         private bool m_awaitingRoll;
 
+        // Loaded Dice on the map: pick one rolled die, then a face; once per fork.
+        private bool m_loadedDiceMode;
+        private int m_loadedDieOwner = -1;
+        private bool m_loadedDiceUsedThisFork;
+        private string m_loadedDiceNote;
+
         /// <summary>Node the last fork roll chose; -1 when no roll is pending travel.</summary>
         public int PendingTarget { get; private set; } = -1;
         public int LastTotal { get; private set; }
@@ -125,10 +131,21 @@ namespace DungeonDice.UI
             if (PendingTarget >= 0)
             {
                 var target = run.Act.Node(PendingTarget);
-                m_result.text = $"Rolled {LastTotal} → {target.name} ({target.type})";
+                m_result.text = $"Rolled {LastTotal} → {target.name} ({target.type}){(m_loadedDiceNote != null ? $"    {m_loadedDiceNote}" : "")}";
                 m_graphHint.text = $"Click {target.name} or Continue to travel.";
+                if (m_loadedDiceMode)
+                {
+                    BuildLoadedDiceActions(run);
+                    return;
+                }
                 UiFactory.Button(m_actions, "Continue", $"Continue to {target.name}", OnContinueAfterRoll, UiFactory.Accent, 22f, 50f)
                     .GetComponentInChildren<TMP_Text>().color = Color.black;
+                if (CanOfferLoadedDice())
+                {
+                    var caster = RunController.Instance.LoadedDiceCaster;
+                    UiFactory.Button(m_actions, "LoadedDice", $"{caster.Definition.displayName}: Loaded Dice (3 Yellow, {run.CarriedYellow} carried) — change one rolled die to any face",
+                        BeginLoadedDice, new Color(0.4f, 0.33f, 0.1f, 1f), 20f, 46f);
+                }
                 return;
             }
 
@@ -332,6 +349,103 @@ namespace DungeonDice.UI
             roll.GetComponentInChildren<TMP_Text>().color = Color.black;
         }
 
+        // ---------------------------------------------------------------- Loaded Dice on the map
+
+        private bool CanOfferLoadedDice() =>
+            !m_loadedDiceUsedThisFork && RunController.Instance != null && RunController.Instance.CanCastLoadedDiceOnMap
+            && DiceManager.Instance != null && DiceManager.Instance.State == DiceBoxState.Settled && DiceManager.Instance.LastRoll != null;
+
+        public void BeginLoadedDice()
+        {
+            if (!CanOfferLoadedDice()) return;
+            m_loadedDiceMode = true;
+            m_loadedDieOwner = -1;
+            Refresh();
+        }
+
+        public void CancelLoadedDice()
+        {
+            m_loadedDiceMode = false;
+            m_loadedDieOwner = -1;
+            Refresh();
+        }
+
+        public void SelectLoadedDie(int ownerId)
+        {
+            m_loadedDieOwner = ownerId;
+            Refresh();
+        }
+
+        /// <summary>What the total and path would be if the selected die showed <paramref name="faceIndex"/>.</summary>
+        private (int total, MapNode target) PreviewLoaded(RunState run, RollResult result, int faceIndex)
+        {
+            int total = LastTotal - result.Pips + result.Die.Pips(faceIndex);
+            var path = ForkResolver.Resolve(run.CurrentNode.fork, total);
+            return (total, path != null ? run.Act.Node(path.targetNode) : null);
+        }
+
+        private void BuildLoadedDiceActions(RunState run)
+        {
+            var roll = DiceManager.Instance.LastRoll;
+            UiFactory.Label(m_actions, "LoadedTitle", m_loadedDieOwner < 0 ? "Loaded Dice: pick the die to change." : "Loaded Dice: pick its new face.", 20f, TextAlignmentOptions.Left, UiFactory.Accent);
+
+            var diceRow = UiFactory.Group(m_actions, "LoadedDice");
+            UiFactory.Horizontal(diceRow, spacing: 8f, padding: 0, align: TextAnchor.MiddleLeft, expandChildren: false);
+            UiFactory.FixedHeight(diceRow, 46f);
+            foreach (var result in roll.Results)
+            {
+                int owner = result.OwnerId;
+                bool selected = owner == m_loadedDieOwner;
+                var b = UiFactory.Button(diceRow, $"Loaded{owner}", $"{result.Die.displayName}: {result.Pips}", () => SelectLoadedDie(owner), selected ? UiFactory.Accent : UiFactory.PanelDark, 18f, 42f);
+                b.gameObject.GetComponent<LayoutElement>().preferredWidth = 220f;
+                if (selected) b.GetComponentInChildren<TMP_Text>().color = Color.black;
+            }
+
+            if (m_loadedDieOwner >= 0)
+            {
+                var result = roll.Results.First(r => r.OwnerId == m_loadedDieOwner);
+                var faceRow = UiFactory.Group(m_actions, "LoadedFaces");
+                UiFactory.Horizontal(faceRow, spacing: 8f, padding: 0, align: TextAnchor.MiddleLeft, expandChildren: false);
+                UiFactory.FixedHeight(faceRow, 46f);
+                for (int f = 1; f <= DieDefinition.FaceCount; f++)
+                {
+                    int face = f;
+                    var (total, target) = PreviewLoaded(run, result, face);
+                    var b = UiFactory.Button(faceRow, $"Face{f}", $"{result.Die.Pips(face)}: total {total} → {(target != null ? target.name : "?")}", () => ApplyLoadedDice(m_loadedDieOwner, face),
+                        face == result.FaceIndex ? UiFactory.PanelMid : UiFactory.PanelDark, 16f, 42f);
+                    b.gameObject.GetComponent<LayoutElement>().preferredWidth = 290f;
+                    b.interactable = face != result.FaceIndex;
+                }
+            }
+            UiFactory.Button(m_actions, "CancelLoaded", "Cancel", CancelLoadedDice, UiFactory.PanelMid, 18f, 42f);
+        }
+
+        /// <summary>
+        /// Cast Loaded Dice on the settled fork roll: pay 3 carried Yellow, set one die to a face (the box
+        /// turns the physical die), then re-resolve the path from the new total. Once per fork.
+        /// </summary>
+        public bool ApplyLoadedDice(int ownerId, int faceIndex)
+        {
+            var run = CurrentRun;
+            var node = run?.CurrentNode;
+            var box = DiceManager.Instance;
+            if (PendingTarget < 0 || node == null || !node.HasFork || !CanOfferLoadedDice()) return false;
+            if (box.GetResult(ownerId) == null || !DieDefinition.IsValidFaceIndex(faceIndex)) return false;
+            if (!RunController.Instance.PayLoadedDiceOnMap()) return false;
+
+            var result = DiceManager.ApplyModifier(ownerId, new ChooseResultModifier(faceIndex));
+            LastTotal = box.LastRoll.TotalPips;
+            var path = ForkResolver.Resolve(node.fork, LastTotal);
+            if (path != null) PendingTarget = path.targetNode;
+            m_loadedDiceUsedThisFork = true;
+            m_loadedDiceMode = false;
+            m_loadedDieOwner = -1;
+            m_loadedDiceNote = result != null ? $"Loaded Dice: {result.Die.displayName} set to {result.Pips}." : "Loaded Dice cast.";
+            Debug.Log($"MapScreen: {m_loadedDiceNote} New total {LastTotal} → node {PendingTarget}.");
+            Refresh();
+            return true;
+        }
+
         // ---------------------------------------------------------------- actions (public for tests)
 
         public void EnterNode()
@@ -366,6 +480,10 @@ namespace DungeonDice.UI
             if (roller != null) roller.SetHint($"Fork at {node.name}: drag across the box to throw {dice.Count} {(dice.Count == 1 ? "die" : "dice")}");
             EventManager.TriggerEvent(GameEvents.OpenDiceBox);
             m_awaitingRoll = true;
+            m_loadedDiceUsedThisFork = false;
+            m_loadedDiceMode = false;
+            m_loadedDieOwner = -1;
+            m_loadedDiceNote = null;
             Refresh();
         }
 
@@ -390,6 +508,8 @@ namespace DungeonDice.UI
             int target = PendingTarget;
             PendingTarget = -1;
             m_committed.Clear();
+            m_loadedDiceNote = null;
+            m_loadedDiceMode = false;
             Travel(target);
         }
 

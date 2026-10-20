@@ -138,6 +138,42 @@ namespace DungeonDice.Run
         public IReadOnlyList<DieDefinition> TraversalDice => m_traversalDice;
         public bool IsActive { get; private set; }
 
+        // --- carried mana ---
+        // Combat pools reset per fight, but whatever was banked and not spent leaves the fight with
+        // the party, so Yellow can pay for Loaded Dice on a traversal roll. Spent only on the map.
+        public int CarriedRed { get; private set; }
+        public int CarriedBlue { get; private set; }
+        public int CarriedYellow { get; private set; }
+
+        public int CarriedMana(DieColor color) => color switch
+        {
+            DieColor.Red => CarriedRed,
+            DieColor.Blue => CarriedBlue,
+            DieColor.Yellow => CarriedYellow,
+            _ => 0,
+        };
+
+        public void SetCarriedMana(int red, int blue, int yellow)
+        {
+            CarriedRed = Math.Max(0, red);
+            CarriedBlue = Math.Max(0, blue);
+            CarriedYellow = Math.Max(0, yellow);
+        }
+
+        /// <summary>Spend carried mana; false (and nothing spent) if there is not enough.</summary>
+        public bool SpendCarriedMana(DieColor color, int amount)
+        {
+            if (amount <= 0 || CarriedMana(color) < amount) return false;
+            switch (color)
+            {
+                case DieColor.Red: CarriedRed -= amount; break;
+                case DieColor.Blue: CarriedBlue -= amount; break;
+                case DieColor.Yellow: CarriedYellow -= amount; break;
+                default: return false;
+            }
+            return true;
+        }
+
         // --- map progress ---
         public ActDefinition Act { get; private set; }
         public int CurrentNodeIndex { get; private set; }
@@ -219,6 +255,7 @@ namespace DungeonDice.Run
             m_party.Clear();
             m_traversalDice.Clear();
             m_visited.Clear();
+            CarriedRed = CarriedBlue = CarriedYellow = 0;
             Act = null;
             CurrentNodeIndex = 0;
             CurrentNodeResolved = false;

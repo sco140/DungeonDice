@@ -216,14 +216,18 @@ namespace DungeonDice.Tests
         }
 
         [Test]
-        public void Signatures_CostThreeManaOfColour_AndResolve()
+        public void Signatures_CostThreeManaOfColour_AndResolve_BeforeDiceAreSpent()
         {
-            // Three Knights: bank all → Red 3 → Bulwark.
+            // Three Knights: turn 1 bank all → Red 3; turn 2 Bulwark before touching the dice.
             var run = Run(m_knight, m_knight, m_knight);
-            var state = Fight(run, Enemy("Guard", 12, (IntentKind.Block, 1)));
+            var state = Fight(run, Enemy("Guard", 12, (IntentKind.Attack, 1)));
             RollAndKeep(state, run, (0, 1), (1, 1), (2, 1));
             Assert.IsFalse(state.CanCastSignature(0), "no mana yet");
             state.BankDie(0); state.BankDie(1); state.BankDie(2);
+            Assert.IsFalse(state.CanCastSignature(0), "mana is there, but the signature window closed when a die was banked");
+            state.EndHeroTurn();
+            RollAndKeep(state, run, (0, 1), (1, 1), (2, 1));
+            Assert.IsTrue(state.SignatureWindowOpen);
             Assert.IsTrue(state.CanCastSignature(0));
             Assert.IsTrue(state.CastSignature(0));
             Assert.AreEqual(0, state.Red);
@@ -231,22 +235,26 @@ namespace DungeonDice.Tests
             Assert.IsFalse(state.CanCastSignature(1), "pool is spent");
             run.Clear();
 
-            // Three Arcanists: turn 1 bank → Blue 3; turn 2 statuses then Detonate.
+            // Three Arcanists: statuses on turn 1, bank on turn 2, Detonate at the top of turn 3.
             run = Run(m_arcanist, m_arcanist, m_arcanist);
-            state = Fight(run, Enemy("Guard", 20, (IntentKind.Block, 1)));
-            RollAndKeep(state, run, (0, 6), (1, 6), (2, 6));
-            state.BankDie(0); state.BankDie(1); state.BankDie(2);
-            state.EndHeroTurn();
+            state = Fight(run, Enemy("Guard", 20, (IntentKind.Attack, 1)));
             RollAndKeep(state, run, (0, 1), (1, 1), (2, 3)); // Burn 2, Burn 2, Poison 3
             state.UseDie(0, 0); state.UseDie(1, 0); state.UseDie(2, 0);
             Assert.AreEqual(7, state.Enemies[0].Statuses.Total);
+            state.EndHeroTurn(); // burn 4 (→3), poison 3: 20 → 13
+            Assert.AreEqual(13, state.Enemies[0].Health);
+            RollAndKeep(state, run, (0, 6), (1, 6), (2, 6));
+            state.BankDie(0); state.BankDie(1); state.BankDie(2);
+            state.EndHeroTurn(); // burn 3 (→2), poison 3: 13 → 7
+            Assert.AreEqual(7, state.Enemies[0].Health);
+            RollAndKeep(state, run, (0, 6), (1, 6), (2, 6));
             Assert.IsTrue(state.CastSignature(0, 0));
-            Assert.AreEqual(14, state.Enemies[0].Health, "7 stacks as damage, 1 absorbed by the Block the enemy raised last turn");
+            Assert.AreEqual(2, state.Enemies[0].Health, "burn 2 + poison 3 = 5 stacks consumed as damage");
             Assert.AreEqual(0, state.Enemies[0].Statuses.Total);
             Assert.AreEqual(0, state.Blue);
             run.Clear();
 
-            // Three Tricksters: Loaded Dice sets a die to a chosen face.
+            // Three Tricksters: Loaded Dice sets a die to a chosen face, on the current roll.
             run = Run(m_trickster, m_trickster, m_trickster);
             state = Fight(run, Enemy("Guard", 20, (IntentKind.Block, 1)));
             RollAndKeep(state, run, (0, 6), (1, 6), (2, 6));
@@ -259,6 +267,33 @@ namespace DungeonDice.Tests
             Assert.AreEqual("Jab 2", state.Die(1).Face.label);
             Assert.AreEqual(1, modified, "the box is told to turn the die");
             Assert.IsFalse(state.CastSignature(1, 2, 6), "yellow pool is spent");
+            Assert.IsTrue(state.UseDie(1, 0), "the loaded die is then used as Jab 2");
+            Assert.AreEqual(19, state.Enemies[0].Health, "Jab 2, one point absorbed by the Block the enemy raised on its turn");
+            run.Clear();
+        }
+
+        [Test]
+        public void SignatureWindow_ClosesAtTheFirstUseOrBank_AndReopensNextTurn()
+        {
+            var run = Run(m_knight, m_knight, m_knight);
+            var state = Fight(run, Enemy("Guard", 12, (IntentKind.Attack, 1)));
+            RollAndKeep(state, run, (0, 1), (1, 1), (2, 1));
+            state.BankDie(0); state.BankDie(1); state.BankDie(2);
+            state.EndHeroTurn();
+
+            RollAndKeep(state, run, (0, 1), (1, 1), (2, 1));
+            Assert.IsTrue(state.SignatureWindowOpen);
+            Assert.IsTrue(state.CanCastSignature(0));
+            state.UseDie(1, 0); // Strike: any use closes the window
+            Assert.IsFalse(state.SignatureWindowOpen);
+            Assert.IsFalse(state.CanCastSignature(0), "signatures go first; after a die is spent they wait for next turn");
+            Assert.IsFalse(state.CastSignature(0));
+            Assert.AreEqual(3, state.Red, "nothing was charged");
+
+            state.BankDie(0); state.BankDie(2);
+            state.EndHeroTurn();
+            RollAndKeep(state, run, (0, 1), (1, 1), (2, 1));
+            Assert.IsTrue(state.CanCastSignature(0), "the window reopens with the new roll");
             run.Clear();
         }
 

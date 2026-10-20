@@ -88,6 +88,19 @@ namespace DungeonDice.Tests
             Assert.AreEqual(expected, map.PendingTarget);
             Assert.That(map.LastTotal, Is.InRange(2, 12), "two dice from Low Road + Steady");
 
+            // Loaded Dice on the map: Yellow carried out of the last fight lets the Trickster set one rolled die.
+            Assert.IsFalse(run.CanCastLoadedDiceOnMap, "no carried mana yet");
+            run.State.SetCarriedMana(0, 0, 3);
+            Assert.IsTrue(run.CanCastLoadedDiceOnMap);
+            map.Refresh();
+            Assert.IsTrue(map.ApplyLoadedDice(0, 6));
+            Assert.AreEqual(6, DiceManager.Instance.LastRoll.Results[0].FaceIndex, "the physical result was set");
+            Assert.AreEqual(DiceManager.Instance.LastRoll.TotalPips, map.LastTotal, "the total follows the loaded die");
+            expected = ForkResolver.Resolve(fork, map.LastTotal).targetNode;
+            Assert.AreEqual(expected, map.PendingTarget, "the path is re-resolved");
+            Assert.AreEqual(0, run.State.CarriedYellow);
+            Assert.IsFalse(map.ApplyLoadedDice(1, 6), "once per fork, and the mana is gone");
+
             // Continue travels to the chosen node, which is unresolved content.
             var continueButton = map.GetComponentsInChildren<UnityEngine.UI.Button>(true).First(b => b.name == "Continue");
             continueButton.onClick.Invoke();

@@ -76,6 +76,19 @@ namespace DungeonDice.Tests
             screen.KeepAll();
             Assert.AreEqual(CombatPhase.Act, state.Phase);
 
+            // Loaded Dice through the screen's targeting flow (the face is chosen, then the die).
+            // Regression: ChooseTarget used to reset the chosen face before casting, so this always failed.
+            int tricksterSlot = state.Heroes.First(h => h.Run.Definition.signatureKind == SignatureKind.LoadedDice).Slot;
+            int knightSlot = state.Heroes.First(h => h.Color == DieColor.Red).Slot;
+            state.GrantManaForTests(DieColor.Yellow, 3);
+            Assert.IsTrue(state.CanCastSignature(tricksterSlot), "signature window is open before any die is spent");
+            screen.CastSignature(tricksterSlot);
+            screen.ChooseLoadedFace(6);
+            screen.ChooseTarget(knightSlot);
+            Assert.AreEqual(6, state.Die(knightSlot).Result.FaceIndex, "Loaded Dice set the Knight's die to face 6");
+            Assert.AreEqual(0, state.Yellow);
+            Assert.IsTrue(state.Heroes.First(h => h.Slot == tricksterSlot).SignatureUsedThisTurn);
+
             screen.Bank(0);
             screen.Bank(1);
             screen.Bank(2);

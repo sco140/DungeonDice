@@ -129,6 +129,26 @@ namespace DungeonDice.Tests
         }
 
         [Test]
+        public void CarriedMana_LeavesAFightWithTheParty_AndIsSpentOnTheMap()
+        {
+            var run = new RunState();
+            run.StartNewRun(new[] { Hero("A"), Hero("B"), Hero("C") }, 9);
+            Assert.AreEqual(0, run.CarriedMana(DieColor.Yellow));
+
+            run.SetCarriedMana(1, 0, 4);
+            Assert.AreEqual(1, run.CarriedRed);
+            Assert.AreEqual(4, run.CarriedYellow);
+            Assert.IsFalse(run.SpendCarriedMana(DieColor.Blue, 1), "nothing to spend");
+            Assert.IsFalse(run.SpendCarriedMana(DieColor.Yellow, 5), "not enough");
+            Assert.AreEqual(4, run.CarriedYellow, "a refused spend changes nothing");
+            Assert.IsTrue(run.SpendCarriedMana(DieColor.Yellow, 3));
+            Assert.AreEqual(1, run.CarriedYellow);
+
+            run.Clear();
+            Assert.AreEqual(0, run.CarriedYellow + run.CarriedRed + run.CarriedBlue);
+        }
+
+        [Test]
         public void Clear_ForgetsEverything()
         {
             var run = new RunState();

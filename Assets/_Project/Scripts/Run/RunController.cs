@@ -220,6 +220,28 @@ namespace DungeonDice.Run
             SetPhase(RunPhase.RunEnd);
         }
 
+        // ---------------------------------------------------------------- Loaded Dice on the map
+
+        /// <summary>The living hero whose signature is Loaded Dice, or null.</summary>
+        public HeroRunState LoadedDiceCaster =>
+            State.LivingHeroes.FirstOrDefault(h => h.Definition.signatureKind == SignatureKind.LoadedDice);
+
+        /// <summary>
+        /// Loaded Dice works on traversal rolls too: it needs a living Trickster and 3 Yellow mana carried
+        /// out of the last fight (see <see cref="RunState.SetCarriedMana"/>).
+        /// </summary>
+        public bool CanCastLoadedDiceOnMap =>
+            State.IsActive && LoadedDiceCaster != null && State.CarriedMana(DieColor.Yellow) >= Combat.CombatState.SignatureCost;
+
+        /// <summary>Pay the Loaded Dice cost from carried mana. False if it cannot be afforded.</summary>
+        public bool PayLoadedDiceOnMap()
+        {
+            if (!CanCastLoadedDiceOnMap) return false;
+            State.SpendCarriedMana(DieColor.Yellow, Combat.CombatState.SignatureCost);
+            Debug.Log($"RunController: {LoadedDiceCaster.Definition.displayName} casts Loaded Dice on the map; Yellow left {State.CarriedYellow}.");
+            return true;
+        }
+
         /// <summary>Move along a resolved node's exit (single exit or a path chosen by a fork roll).</summary>
         public void TravelTo(int nodeIndex)
         {

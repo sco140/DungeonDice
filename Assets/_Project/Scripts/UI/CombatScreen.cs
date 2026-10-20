@@ -275,7 +275,12 @@ namespace DungeonDice.UI
         public void Continue()
         {
             if (m_state == null) return;
-            if (m_state.Phase == CombatPhase.Won) RunController.Instance?.CompleteNode();
+            if (m_state.Phase == CombatPhase.Won)
+            {
+                // Unspent mana travels with the party so Yellow can pay for Loaded Dice on a traversal roll.
+                RunController.Instance?.State.SetCarriedMana(m_state.Red, m_state.Blue, m_state.Yellow);
+                RunController.Instance?.CompleteNode();
+            }
             else if (m_state.Phase == CombatPhase.Lost) RunController.Instance?.PartyWiped();
         }
 
@@ -309,10 +314,12 @@ namespace DungeonDice.UI
             bool signature = m_pendingIsSignature;
             var kind = m_pendingKind;
             if (kind == TargetKind.Die && signature && !DieDefinition.IsValidFaceIndex(m_loadedFace)) return; // pick a face first
+            int face = m_loadedFace;   // capture before ClearTargeting resets it (this was the Loaded Dice bug)
+            int nudge = m_nudgeDelta;
             ClearTargeting();
 
-            if (signature) m_state.CastSignature(slot, target, m_loadedFace);
-            else m_state.UseDie(slot, target, m_nudgeDelta);
+            if (signature) m_state.CastSignature(slot, target, face);
+            else m_state.UseDie(slot, target, nudge);
             Refresh();
         }
 
@@ -520,7 +527,9 @@ namespace DungeonDice.UI
                 var definition = hero.Run.Definition;
                 if (definition.signatureKind != SignatureKind.None)
                 {
-                    var sig = UiFactory.Button(body, "Signature", $"{definition.signatureName} (3 {hero.Color})", () => CastSignature(slot), UiFactory.PanelDark, 16f, 34f);
+                    bool affordable = state.Mana(hero.Color) >= CombatState.SignatureCost;
+                    string why = !affordable ? "" : hero.SignatureUsedThisTurn ? "  (cast this turn)" : !state.SignatureWindowOpen ? "  (before using dice)" : "";
+                    var sig = UiFactory.Button(body, "Signature", $"{definition.signatureName} (3 {hero.Color}){why}", () => CastSignature(slot), UiFactory.PanelDark, 16f, 34f);
                     sig.interactable = state.CanCastSignature(slot);
                 }
             }
@@ -551,7 +560,9 @@ namespace DungeonDice.UI
             {
                 CombatPhase.Throw => "Drag across the box to throw your dice.",
                 CombatPhase.Reroll => m_waitingForThrow ? "Drag to re-throw the selected dice." : "Pick dice to re-throw (once per turn), or keep them all.",
-                CombatPhase.Act => "Use each die's face, or bank it for 1 mana. Signatures cost 3 mana of the hero's colour.",
+                CombatPhase.Act => state.SignatureWindowOpen && state.Heroes.Any(h => state.CanCastSignature(h.Slot))
+                    ? "Signatures go first: cast now (3 mana of the hero's colour) or wait for next turn. Then use or bank each die."
+                    : "Use each die's face, or bank it for 1 mana. Signatures must be cast before any die is used or banked.",
                 CombatPhase.Won => "Victory. Continue to the map.",
                 CombatPhase.Lost => "The party has fallen.",
                 _ => "",
