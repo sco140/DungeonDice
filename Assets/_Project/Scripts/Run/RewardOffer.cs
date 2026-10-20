@@ -10,8 +10,8 @@ namespace DungeonDice.Run
     {
         /// <summary>Add a traversal die to the party's pool.</summary>
         TraversalDie,
-        /// <summary>Replace one face of a hero's die (<see cref="FaceUpgrade"/>).</summary>
-        FaceUpgrade,
+        /// <summary>One more resource die in every combat throw for the rest of the run (capped by <see cref="RunState.MaxResourceDice"/>).</summary>
+        ResourceDie,
     }
 
     /// <summary>One thing the player may take from a Treasure node.</summary>
@@ -19,39 +19,33 @@ namespace DungeonDice.Run
     {
         public RewardKind Kind { get; }
         public DieDefinition Die { get; }
-        public int HeroSlot { get; }
-        public int UpgradeIndex { get; }
         public string Title { get; }
         public string Description { get; }
 
-        private RewardOption(RewardKind kind, DieDefinition die, int heroSlot, int upgradeIndex, string title, string description)
+        private RewardOption(RewardKind kind, DieDefinition die, string title, string description)
         {
             Kind = kind;
             Die = die;
-            HeroSlot = heroSlot;
-            UpgradeIndex = upgradeIndex;
             Title = title;
             Description = description;
         }
 
-        public static RewardOption ForDie(DieDefinition die) =>
-            new(RewardKind.TraversalDie, die, -1, -1, $"Traversal die: {die.displayName}",
+        public static RewardOption ForTraversalDie(DieDefinition die) =>
+            new(RewardKind.TraversalDie, die, $"Traversal die: {die.displayName}",
                 $"Faces {string.Join(" ", die.Faces.Select(f => f.Pips))}. Joins your traversal pool.");
 
-        public static RewardOption ForUpgrade(HeroRunState hero, int upgradeIndex) =>
-            new(RewardKind.FaceUpgrade, null, hero.Slot, upgradeIndex, $"{hero.Definition.displayName}: face upgrade",
-                hero.Definition.faceUpgrades[upgradeIndex].Describe(hero.Die));
+        public static RewardOption ForResourceDie(int currentCount) =>
+            new(RewardKind.ResourceDie, null, $"Resource die #{currentCount + 1}",
+                $"Throw {currentCount + 1} resource dice in every combat for the rest of the run (max {RunState.MaxResourceDice}).");
     }
 
     /// <summary>
-    /// What a Treasure node offers: one traversal die plus face upgrades for up to two living heroes,
-    /// all drawn with the run's seeded RNG. Pure C#; <see cref="RunController"/> generates it on entering
-    /// the node and applies the chosen option.
+    /// What a Treasure node offers: one traversal die (drawn with the run's seeded RNG) and, while the
+    /// party is under the cap, one more resource die. Pure C#; <see cref="RunController"/> generates
+    /// it on entering the node and applies the chosen option.
     /// </summary>
     public sealed class RewardOffer
     {
-        public const int UpgradeOptions = 2;
-
         public IReadOnlyList<RewardOption> Options { get; }
 
         private RewardOffer(List<RewardOption> options)
@@ -66,16 +60,8 @@ namespace DungeonDice.Run
             var options = new List<RewardOption>();
 
             var dice = rewardDice?.Where(d => d != null).ToList();
-            if (dice != null && dice.Count > 0) options.Add(RewardOption.ForDie(rng.Pick(dice)));
-
-            // Heroes with at least one upgrade not yet taken, in a seeded shuffle; one upgrade each.
-            var candidates = run.LivingHeroes.Where(h => h.AvailableUpgrades().Any()).ToList();
-            rng.Shuffle(candidates);
-            foreach (var hero in candidates.Take(UpgradeOptions))
-            {
-                var available = hero.AvailableUpgrades().ToList();
-                options.Add(RewardOption.ForUpgrade(hero, rng.Pick(available)));
-            }
+            if (dice != null && dice.Count > 0) options.Add(RewardOption.ForTraversalDie(rng.Pick(dice)));
+            if (run.CanAddResourceDie) options.Add(RewardOption.ForResourceDie(run.ResourceDiceCount));
 
             return new RewardOffer(options);
         }
@@ -91,16 +77,20 @@ namespace DungeonDice.Run
                     run.AddTraversalDie(option.Die);
                     return $"Treasure: gained the {option.Die.displayName} die.";
 
-                case RewardKind.FaceUpgrade:
-                {
-                    var hero = run.Party.First(h => h.Slot == option.HeroSlot);
-                    string change = hero.Definition.faceUpgrades[option.UpgradeIndex].Describe(hero.Die);
-                    hero.ApplyUpgrade(option.UpgradeIndex);
-                    return $"Treasure: {hero.Definition.displayName}'s die upgraded ({change}).";
-                }
+                case RewardKind.ResourceDie:
+                    return run.AddResourceDie()
+                        ? $"Treasure: a {Ordinal(run.ResourceDiceCount)} resource die joins every combat throw."
+                        : "Treasure: the party already carries the maximum resource dice.";
+
                 default:
                     return "Treasure: nothing happened.";
             }
         }
+
+        private static string Ordinal(int n) => n switch
+        {
+            1 => "first", 2 => "second", 3 => "third", 4 => "fourth", 5 => "fifth",
+            6 => "sixth", 7 => "seventh", 8 => "eighth", _ => $"{n}th",
+        };
     }
 }

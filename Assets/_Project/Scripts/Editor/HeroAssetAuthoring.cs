@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using DungeonDice.Combat;
 using DungeonDice.Dice;
 using DungeonDice.Run;
 using UnityEditor;
@@ -8,13 +9,13 @@ namespace DungeonDice.EditorTools
 {
     /// <summary>
     /// Creates or refreshes the six <see cref="HeroDefinition"/> assets of the pick screen:
-    /// three core classes with dice, three dual-colour classes shown locked. Numbers are
-    /// placeholders for tuning. Re-runnable and GUID-preserving.
+    /// three core classes with three abilities each (costing 1/2/3 of their colour), three
+    /// dual-colour classes shown locked. Numbers are placeholders for tuning. Re-runnable and
+    /// GUID-preserving.
     /// </summary>
     public static class HeroAssetAuthoring
     {
         public const string HeroDir = "Assets/_Project/Data/Heroes";
-        private const string DiceDir = "Assets/_Project/Data/Dice/Heroes";
 
         /// <summary>Roster in pick-screen order.</summary>
         public static readonly string[] RosterOrder = { "Knight", "Arcanist", "Trickster", "Rogue", "Berserker", "Cleric" };
@@ -25,72 +26,37 @@ namespace DungeonDice.EditorTools
             AuthoringUtil.EnsureFolder(HeroDir);
 
             Upsert("Knight", DieColor.Red, 30, true,
-                "Consistent and defensive. No bad faces.",
-                "Bulwark", "Shield 6 to all allies.", SignatureKind.Bulwark, Die("Knight"));
+                "Consistent and defensive. Red mana: damage and block.",
+                A("Strike", "Deal 3 damage to one enemy.", DieColor.Red, 1, AbilityKind.Damage, 3),
+                A("Shield", "Shield yourself for 4.", DieColor.Red, 2, AbilityKind.Shield, 4),
+                A("Bulwark", "Shield every living hero for 6.", DieColor.Red, 3, AbilityKind.ShieldAll, 6));
             Upsert("Arcanist", DieColor.Blue, 20, true,
-                "Statuses: burn, poison, weaken, hex.",
-                "Detonate", "Consume a target's statuses and deal damage equal to their stacks.", SignatureKind.Detonate, Die("Arcanist"));
+                "Statuses. Blue mana: burn, poison, then detonate the stacks.",
+                A("Burn", "Burn 2: deals its stacks at the start of the enemy turn, then decays by 1.", DieColor.Blue, 1, AbilityKind.Status, 2, StatusKind.Burn),
+                A("Poison", "Poison 3: deals its stacks at the end of the enemy turn; does not decay.", DieColor.Blue, 2, AbilityKind.Status, 3, StatusKind.Poison),
+                A("Detonate", "Consume one enemy's status stacks and deal that much damage.", DieColor.Blue, 3, AbilityKind.Detonate));
             Upsert("Trickster", DieColor.Yellow, 24, true,
-                "Bends dice: nudge, flip, reroll, mirror. Works on traversal rolls too.",
-                "Loaded Dice", "Set any one die, hero or traversal, to a chosen face.", SignatureKind.LoadedDice, Die("Trickster"));
+                "Bends the party's dice. Yellow mana: re-throw or recolour a rolled die.",
+                A("Jab", "Deal 2 damage to one enemy.", DieColor.Yellow, 1, AbilityKind.Damage, 2),
+                A("Reroll", "Re-throw one rolled die whose mana is unspent; its new colour joins the pool.", DieColor.Yellow, 1, AbilityKind.RerollDie),
+                A("Recolour", "Change one rolled die whose mana is unspent to any colour.", DieColor.Yellow, 2, AbilityKind.Recolor));
 
-            Upsert("Rogue", DieColor.Red, 22, false,
-                "Red + Blue. Damage plus poison combos. Coming later.",
-                "", "", SignatureKind.None, null);
-            Upsert("Berserker", DieColor.Red, 28, false,
-                "Red + Yellow. Heavy damage, self-modifying Rage. Coming later.",
-                "", "", SignatureKind.None, null);
-            Upsert("Cleric", DieColor.Blue, 22, false,
-                "Blue + Yellow. Cleanse and heal, Bless another die. Coming later.",
-                "", "", SignatureKind.None, null);
+            Upsert("Rogue", DieColor.Red, 22, false, "Red + Blue. Damage plus poison combos. Coming later.");
+            Upsert("Berserker", DieColor.Red, 28, false, "Red + Yellow. Heavy damage, self-modifying Rage. Coming later.");
+            Upsert("Cleric", DieColor.Blue, 22, false, "Blue + Yellow. Cleanse and heal, Bless another die. Coming later.");
 
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
             Debug.Log("HeroAssetAuthoring: six heroes authored.");
         }
 
-        /// <summary>Treasure face upgrades per class. Face indices match the dice authored in DiceAssetAuthoring.</summary>
-        private static List<FaceUpgrade> UpgradesFor(string hero)
-        {
-            FaceEffectEntry E(FaceEffectKind k, int v = 0) => new(k, v);
-            FaceUpgrade U(int face, string label, params FaceEffectEntry[] effects) =>
-                new() { faceIndex = face, replacement = DieFace.Of(label, effects) };
-
-            return hero switch
-            {
-                "Knight" => new List<FaceUpgrade>
-                {
-                    U(1, "Strike 4", E(FaceEffectKind.Strike, 4)),
-                    U(2, "Shield 5", E(FaceEffectKind.Shield, 5)),
-                    U(5, "Taunt + Shield 4", E(FaceEffectKind.Taunt), E(FaceEffectKind.Shield, 4)),
-                },
-                "Arcanist" => new List<FaceUpgrade>
-                {
-                    U(1, "Burn 3", E(FaceEffectKind.Burn, 3)),
-                    U(3, "Poison 4", E(FaceEffectKind.Poison, 4)),
-                    U(6, "Burn 1", E(FaceEffectKind.Burn, 1)), // Fizzle becomes a weak face instead of a dead one
-                },
-                "Trickster" => new List<FaceUpgrade>
-                {
-                    U(6, "Jab 4", E(FaceEffectKind.Jab, 4)),
-                    U(1, "Nudge ±2", E(FaceEffectKind.Nudge, 2)),
-                },
-                _ => new List<FaceUpgrade>(),
-            };
-        }
-
         public static HeroDefinition Load(string name) =>
             AssetDatabase.LoadAssetAtPath<HeroDefinition>($"{HeroDir}/{name}.asset");
 
-        private static DieDefinition Die(string name)
-        {
-            var die = AssetDatabase.LoadAssetAtPath<DieDefinition>($"{DiceDir}/{name}.asset");
-            if (die == null) Debug.LogWarning($"HeroAssetAuthoring: die {name} missing; run DungeonDice ▸ Author Prototype Dice first.");
-            return die;
-        }
+        private static AbilityDefinition A(string name, string description, DieColor color, int cost, AbilityKind kind, int value = 0, StatusKind status = StatusKind.Burn) =>
+            new() { name = name, description = description, costColor = color, cost = cost, kind = kind, value = value, status = status };
 
-        private static void Upsert(string name, DieColor color, int maxHealth, bool playable,
-            string description, string signatureName, string signatureDescription, SignatureKind signatureKind, DieDefinition die)
+        private static void Upsert(string name, DieColor color, int maxHealth, bool playable, string description, params AbilityDefinition[] abilities)
         {
             var path = $"{HeroDir}/{name}.asset";
             var hero = AssetDatabase.LoadAssetAtPath<HeroDefinition>(path);
@@ -106,12 +72,7 @@ namespace DungeonDice.EditorTools
             hero.maxHealth = maxHealth;
             hero.playableInPrototype = playable;
             hero.description = description;
-            hero.signatureName = signatureName;
-            hero.signatureDescription = signatureDescription;
-            hero.signatureKind = signatureKind;
-            hero.dice.Clear();
-            if (die != null) hero.dice.Add(die);
-            hero.faceUpgrades = UpgradesFor(name);
+            hero.abilities = new List<AbilityDefinition>(abilities);
             EditorUtility.SetDirty(hero);
             Debug.Log($"HeroAssetAuthoring: {(created ? "created" : "updated")} {path}");
         }

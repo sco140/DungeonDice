@@ -51,8 +51,6 @@ namespace DungeonDice.Combat
         public StatusSet Statuses { get; } = new();
         /// <summary>Absorbs damage before HP. Expires at the end of the enemy turn.</summary>
         public int Shield { get; set; }
-        /// <summary>Signature cast this turn; one per hero per turn.</summary>
-        public bool SignatureUsedThisTurn { get; set; }
 
         public int Slot => Run.Slot;
         public string Name => Run.Definition.displayName;
@@ -60,6 +58,7 @@ namespace DungeonDice.Combat
         public int Health => Run.CurrentHealth;
         public int MaxHealth => Run.MaxHealth;
         public bool IsAlive => Run.IsAlive;
+        public IReadOnlyList<AbilityDefinition> Abilities => Run.Definition.abilities;
 
         public CombatHero(HeroRunState run)
         {
@@ -118,27 +117,27 @@ namespace DungeonDice.Combat
         }
     }
 
-    /// <summary>One hero die this turn: its settled result and what the player did with it.</summary>
+    /// <summary>
+    /// One of the party's resource dice this turn. Its colour fed the pool when it settled; Recolour
+    /// and Reroll abilities can change it afterwards while that mana is still unspent.
+    /// </summary>
     public sealed class CombatDie
     {
-        public int Slot { get; }
+        /// <summary>Position in the throw; also the box owner id.</summary>
+        public int Index { get; }
         public RollResult Result { get; internal set; }
-        /// <summary>Set by Mirror: this die acts as a copy of another die's face.</summary>
-        public DieFace MirroredFace { get; internal set; }
-        public bool Used { get; internal set; }
-        public bool Banked { get; internal set; }
+        /// <summary>Current colour (may differ from the settled face after Recolour).</summary>
+        public DieColor Color { get; internal set; }
+        /// <summary>True while a Reroll-die re-throw is in flight; its mana has been pulled from the pool.</summary>
+        public bool Pending { get; internal set; }
 
-        public bool Spent => Used || Banked;
-        /// <summary>The face that resolves when the die is used.</summary>
-        public DieFace Face => MirroredFace ?? Result.Face;
-        public DieColor Color => Result.Color;
-
-        public CombatDie(int slot, RollResult result)
+        public CombatDie(int index, RollResult result)
         {
-            Slot = slot;
+            Index = index;
             Result = result ?? throw new ArgumentNullException(nameof(result));
+            Color = result.Face.ManaColor;
         }
 
-        public override string ToString() => $"{Face}{(MirroredFace != null ? " (mirrored)" : "")}{(Used ? " [used]" : Banked ? " [banked]" : "")}";
+        public override string ToString() => $"die {Index + 1}: {Color}{(Pending ? " (re-throwing)" : "")}";
     }
 }

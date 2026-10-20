@@ -6,7 +6,7 @@ namespace DungeonDice.Map
 {
     /// <summary>
     /// Nominal (fair-die) probabilities for a fork roll, by convolving the pip multisets of the
-    /// committed dice. Physics decides the real result, so these are what the UI shows on hover,
+    /// committed dice. Physics decides the real result, so these are what the UI shows on the edges,
     /// not a guarantee.
     /// </summary>
     public static class ForkOdds
@@ -35,15 +35,18 @@ namespace DungeonDice.Map
             return current;
         }
 
-        /// <summary>Probability of each path of <paramref name="fork"/>, in path order, for the given dice.</summary>
+        /// <summary>
+        /// Probability that each path of <paramref name="fork"/> is unlocked (total ≥ threshold), in path
+        /// order, for the given dice. Paths are not exclusive, so these do not sum to 1.
+        /// </summary>
         public static double[] PathProbabilities(Fork fork, IReadOnlyList<DieDefinition> dice)
         {
             var distribution = Distribution(dice);
             var result = new double[fork.paths.Count];
             for (int i = 0; i < fork.paths.Count; i++)
             {
-                var bracket = fork.paths[i];
-                result[i] = distribution.Where(kv => bracket.Contains(kv.Key)).Sum(kv => kv.Value);
+                var path = fork.paths[i];
+                result[i] = distribution.Where(kv => path.IsUnlockedBy(kv.Key)).Sum(kv => kv.Value);
             }
             return result;
         }
@@ -52,27 +55,27 @@ namespace DungeonDice.Map
             die == null ? 0 : Enumerable.Range(1, DieDefinition.FaceCount).Average(die.Pips);
     }
 
-    /// <summary>Picks the path for a rolled total.</summary>
+    /// <summary>Which paths a rolled total opens.</summary>
     public static class ForkResolver
     {
-        /// <summary>The bracket containing <paramref name="total"/>, or null if the fork is malformed.</summary>
-        public static PathBracket Resolve(Fork fork, int total)
+        /// <summary>Every path unlocked by <paramref name="total"/>, in path order. Empty only for a malformed fork.</summary>
+        public static List<ForkPath> Unlocked(Fork fork, int total)
         {
-            if (fork == null || !fork.HasPaths) return null;
-            foreach (var path in fork.paths)
-            {
-                if (path.Contains(total)) return path;
-            }
-            // A validated fork never gets here; clamp so a stray total still lands somewhere.
-            return total < fork.MinTotal
-                ? fork.paths.OrderBy(p => p.minTotal).First()
-                : fork.paths.OrderByDescending(p => p.maxTotal).First();
+            if (fork == null || !fork.HasPaths) return new List<ForkPath>();
+            var unlocked = fork.paths.Where(p => p.IsUnlockedBy(total)).ToList();
+            // A validated fork always unlocks something; clamp so a stray total still opens the easiest path.
+            if (unlocked.Count == 0) unlocked.Add(fork.paths.OrderBy(p => p.threshold).First());
+            return unlocked;
         }
+
+        /// <summary>Target node indices unlocked by <paramref name="total"/>.</summary>
+        public static List<int> UnlockedTargets(Fork fork, int total) => Unlocked(fork, total).Select(p => p.targetNode).ToList();
     }
 
     /// <summary>
-    /// Design rule from the proposal: brackets cover every possible total with no gaps or overlaps,
-    /// and every target exists. Run from <see cref="ActDefinition.OnValidate"/> and the authoring tool.
+    /// Design rules: a fork has at least two paths, one of them unlocks on the lowest possible total,
+    /// every threshold is reachable, and every target exists. Run from <see cref="ActDefinition.OnValidate"/>
+    /// and the authoring tool.
     /// </summary>
     public static class ForkValidator
     {
@@ -88,22 +91,13 @@ namespace DungeonDice.Map
                 return errors;
             }
             if (fork.paths.Count < 2) errors.Add($"{context}: a fork needs at least two paths.");
-
-            var sorted = fork.paths.OrderBy(p => p.minTotal).ToList();
-            if (sorted[0].minTotal > fork.MinTotal)
-                errors.Add($"{context}: gap below {sorted[0].minTotal} (lowest possible total is {fork.MinTotal}).");
-            for (int i = 0; i < sorted.Count; i++)
+            if (fork.paths.Min(p => p.threshold) > fork.MinTotal)
+                errors.Add($"{context}: no path unlocks on the lowest total {fork.MinTotal} (lowest threshold is {fork.paths.Min(p => p.threshold)}).");
+            foreach (var p in fork.paths)
             {
-                var p = sorted[i];
-                if (p.maxTotal < p.minTotal) errors.Add($"{context}: bracket {p.minTotal}–{p.maxTotal} is inverted.");
-                if (p.targetNode < 0 || p.targetNode >= nodeCount) errors.Add($"{context}: bracket {p.minTotal}–{p.maxTotal} targets missing node {p.targetNode}.");
-                if (i == 0) continue;
-                var prev = sorted[i - 1];
-                if (p.minTotal <= prev.maxTotal) errors.Add($"{context}: brackets {prev.minTotal}–{prev.maxTotal} and {p.minTotal}–{p.maxTotal} overlap.");
-                else if (p.minTotal > prev.maxTotal + 1) errors.Add($"{context}: gap between {prev.maxTotal} and {p.minTotal}.");
+                if (p.threshold > fork.MaxTotal) errors.Add($"{context}: threshold {p.threshold}+ is unreachable (highest possible total is {fork.MaxTotal}).");
+                if (p.targetNode < 0 || p.targetNode >= nodeCount) errors.Add($"{context}: path {p.threshold}+ targets missing node {p.targetNode}.");
             }
-            if (sorted[^1].maxTotal < fork.MaxTotal)
-                errors.Add($"{context}: gap above {sorted[^1].maxTotal} (highest possible total is {fork.MaxTotal}).");
             return errors;
         }
 

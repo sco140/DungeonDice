@@ -22,7 +22,7 @@ namespace DungeonDice.UI
         public Sprite nodeTreasure;
         public Sprite nodeBoss;
 
-        [Header("Face effects")]
+        [Header("Abilities and statuses")]
         public Sprite strike;
         public Sprite shield;
         public Sprite taunt;
@@ -30,11 +30,9 @@ namespace DungeonDice.UI
         public Sprite poison;
         public Sprite weaken;
         public Sprite hex;
-        public Sprite nudge;
-        public Sprite flip;
-        public Sprite rerollAlly;
-        public Sprite mirror;
-        public Sprite fizzle;
+        public Sprite detonate;
+        public Sprite recolor;
+        public Sprite reroll;
         public Sprite number;
 
         [Header("Intents")]
@@ -63,31 +61,28 @@ namespace DungeonDice.UI
             _ => null,
         };
 
-        public Sprite ForEffect(FaceEffectKind kind) => kind switch
+        public Sprite ForAbility(AbilityDefinition ability)
         {
-            FaceEffectKind.Strike or FaceEffectKind.Jab => strike,
-            FaceEffectKind.Shield => shield,
-            FaceEffectKind.Taunt => taunt,
-            FaceEffectKind.Burn => burn,
-            FaceEffectKind.Poison => poison,
-            FaceEffectKind.Weaken => weaken,
-            FaceEffectKind.Hex => hex,
-            FaceEffectKind.Nudge => nudge,
-            FaceEffectKind.Flip => flip,
-            FaceEffectKind.RerollAlly => rerollAlly,
-            FaceEffectKind.Mirror => mirror,
-            FaceEffectKind.Fizzle => fizzle,
-            FaceEffectKind.Number => number,
-            _ => null,
-        };
+            if (ability == null) return null;
+            return ability.kind switch
+            {
+                AbilityKind.Damage => strike,
+                AbilityKind.Shield or AbilityKind.ShieldAll => shield,
+                AbilityKind.Guard => taunt,
+                AbilityKind.Status => ForStatus(ability.status),
+                AbilityKind.Detonate => detonate,
+                AbilityKind.Recolor => recolor,
+                AbilityKind.RerollDie => reroll,
+                _ => null,
+            };
+        }
 
-        /// <summary>The icon for a face: its first effect's icon, or a die pip sprite for numbers.</summary>
+        /// <summary>The icon for a die face: a pip sprite for numbers, the mana token for colours.</summary>
         public Sprite ForFace(DieFace face)
         {
-            if (face == null || face.effects == null || face.effects.Length == 0) return fizzle;
+            if (face == null || face.effects == null || face.effects.Length == 0) return null;
             var first = face.effects[0];
-            if (first.kind == FaceEffectKind.Number) return ForPips(first.value);
-            return ForEffect(first.kind);
+            return first.kind == FaceEffectKind.Number ? ForPips(first.value) : mana;
         }
 
         public Sprite ForPips(int pips) =>

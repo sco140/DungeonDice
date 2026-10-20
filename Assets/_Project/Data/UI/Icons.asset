@@ -25,11 +25,9 @@ MonoBehaviour:
   poison: {fileID: 21300000, guid: 9575d479d74369e4e8f88ac4bf2725c8, type: 3}
   weaken: {fileID: 21300000, guid: d5765f703f9cd024fa8d80cd4e0469d9, type: 3}
   hex: {fileID: 21300000, guid: d80cd1569bb4ecb46b8ee95fc871c1ab, type: 3}
-  nudge: {fileID: 21300000, guid: df7afba985d8cab42921ee045997f97d, type: 3}
-  flip: {fileID: 21300000, guid: d72c5e4c7935e774290956a7848567d0, type: 3}
-  rerollAlly: {fileID: 21300000, guid: e9142508200707443829af277bc40569, type: 3}
-  mirror: {fileID: 21300000, guid: 168352c292142704abd98519b28b3dd2, type: 3}
-  fizzle: {fileID: 21300000, guid: 62cd4d7a21a49ba408b0dd6f3d4bb31b, type: 3}
+  detonate: {fileID: 21300000, guid: 874867b6ce4624044abddbf512e38445, type: 3}
+  recolor: {fileID: 21300000, guid: d72c5e4c7935e774290956a7848567d0, type: 3}
+  reroll: {fileID: 21300000, guid: e9142508200707443829af277bc40569, type: 3}
   number: {fileID: 21300000, guid: 9c34058e200e17e4899919ab8ba277a5, type: 3}
   intentAttack: {fileID: 21300000, guid: 34d8d06895657a842a18db26338162b5, type: 3}
   intentAttackAll: {fileID: 21300000, guid: 6cc26bcc75b50ee47b8586b92c060be7, type: 3}

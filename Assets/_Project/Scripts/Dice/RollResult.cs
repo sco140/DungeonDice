@@ -26,7 +26,10 @@ namespace DungeonDice.Dice
         public IReadOnlyList<IDieModifier> Applied => m_applied;
         public DieFace Face => Die.GetFace(FaceIndex);
         public int Pips => Face.Pips;
+        /// <summary>The die's single-colour tag (legacy SampleScene die); None for resource and traversal dice.</summary>
         public DieColor Color => Die.color;
+        /// <summary>The colour this face yields on a resource die; None for number faces.</summary>
+        public DieColor ManaColor => Face.ManaColor;
         public bool WasModified => FaceIndex != RolledFaceIndex;
 
         public RollResult(DieDefinition die, int rolledFaceIndex, string dieName = null, int ownerId = -1)

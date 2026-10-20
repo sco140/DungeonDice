@@ -5,9 +5,9 @@ namespace DungeonDice.Map
     /// <summary>
     /// The prototype's single act, defined in code so the validator can unit-test it and the
     /// authoring tool can write it to <c>Assets/_Project/Data/Map/Act1.asset</c>.
-    /// Eleven nodes, three forks, one Boss. Bracket thresholds are tuning placeholders; the
-    /// proposal's note applies: tune them against the real traversal dice, not plain d6s.
-    /// Good paths are deliberately not always the low bracket.
+    /// Eleven nodes, three forks, one Boss. A roll unlocks every path at or below its total and the
+    /// player chooses, so the lowest path is always open and the higher thresholds gate the richer
+    /// options. Thresholds are tuning placeholders; tune them against the real traversal dice.
     /// </summary>
     public static class PrototypeAct
     {
@@ -19,15 +19,15 @@ namespace DungeonDice.Map
             new MapNode
             {
                 name = "Vault Gate", type = NodeType.Start,
-                description = "The way in. Three doors; your dice choose.",
+                description = "The way in. Three doors; the higher you roll, the more of them open.",
                 fork = new Fork
                 {
                     minDice = 1, maxDice = 3,
-                    paths = new List<PathBracket>
+                    paths = new List<ForkPath>
                     {
-                        new() { minTotal = 1, maxTotal = 5, targetNode = 1 },   // low  → Treasure
-                        new() { minTotal = 6, maxTotal = 10, targetNode = 2 },  // mid  → Combat
-                        new() { minTotal = 11, maxTotal = 18, targetNode = 3 }, // high → Elite
+                        new() { threshold = 1, targetNode = 2 },   // always → Combat
+                        new() { threshold = 7, targetNode = 3 },   // 7+     → Elite
+                        new() { threshold = 12, targetNode = 1 },  // 12+    → Treasure
                     },
                 },
             },
@@ -43,11 +43,11 @@ namespace DungeonDice.Map
                 fork = new Fork
                 {
                     minDice = 2, maxDice = 3,
-                    paths = new List<PathBracket>
+                    paths = new List<ForkPath>
                     {
-                        new() { minTotal = 2, maxTotal = 8, targetNode = 5 },   // low  → Combat
-                        new() { minTotal = 9, maxTotal = 13, targetNode = 6 },  // mid  → Elite
-                        new() { minTotal = 14, maxTotal = 18, targetNode = 7 }, // high → Treasure (the high road pays here)
+                        new() { threshold = 2, targetNode = 5 },   // always → Combat
+                        new() { threshold = 9, targetNode = 6 },   // 9+     → Elite
+                        new() { threshold = 14, targetNode = 7 },  // 14+    → Treasure
                     },
                 },
             },
@@ -59,14 +59,14 @@ namespace DungeonDice.Map
             new MapNode
             {
                 name = "Last Lantern", type = NodeType.Rest,
-                description = "Roll all three. Low keeps you safe but slow; high goes straight for the Boss.",
+                description = "Roll all three. Low means one more fight first; high opens the way straight to the Boss.",
                 fork = new Fork
                 {
                     minDice = 3, maxDice = 3,
-                    paths = new List<PathBracket>
+                    paths = new List<ForkPath>
                     {
-                        new() { minTotal = 3, maxTotal = 10, targetNode = 9 },  // low  → one more Combat first
-                        new() { minTotal = 11, maxTotal = 18, targetNode = 10 }, // high → Boss directly
+                        new() { threshold = 3, targetNode = 9 },   // always → one more Combat first
+                        new() { threshold = 11, targetNode = 10 }, // 11+    → Boss directly
                     },
                 },
             },

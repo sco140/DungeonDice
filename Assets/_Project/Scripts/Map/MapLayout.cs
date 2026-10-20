@@ -27,8 +27,8 @@ namespace DungeonDice.Map
             public Cell For(int node) => Cells.First(c => c.Node == node);
         }
 
-        /// <summary>Every (from, to) edge of the act, with the fork bracket when the edge comes from a fork.</summary>
-        public static IEnumerable<(int from, int to, PathBracket bracket)> Edges(ActDefinition act)
+        /// <summary>Every (from, to) edge of the act, with the fork path when the edge comes from a fork.</summary>
+        public static IEnumerable<(int from, int to, ForkPath path)> Edges(ActDefinition act)
         {
             for (int i = 0; i < act.nodes.Count; i++)
             {

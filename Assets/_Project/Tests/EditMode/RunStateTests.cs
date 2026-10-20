@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using DungeonDice.Dice;
 using DungeonDice.Run;
 using NUnit.Framework;
 using UnityEngine;
@@ -19,31 +18,15 @@ namespace DungeonDice.Tests
             m_created.Clear();
         }
 
-        private HeroDefinition Hero(string name, bool playable = true, int hp = 20)
-        {
-            var die = ScriptableObject.CreateInstance<DieDefinition>();
-            die.displayName = name + " die";
-            die.SetFaces(Enumerable.Range(1, 6).Select(DieFace.Number).ToArray());
-            m_created.Add(die);
-
-            var hero = ScriptableObject.CreateInstance<HeroDefinition>();
-            hero.displayName = name;
-            hero.maxHealth = hp;
-            hero.playableInPrototype = playable;
-            if (playable) hero.dice.Add(die);
-            m_created.Add(hero);
-            return hero;
-        }
+        private HeroDefinition Hero(string name, bool playable = true, int hp = 20) => TestHeroes.Simple(m_created, name, hp, playable);
 
         [Test]
-        public void StartNewRun_BuildsPartyWithFullHealthAndDieCopies()
+        public void StartNewRun_BuildsPartyWithFullHealth_AndTheDefaultResourceDice()
         {
             var run = new RunState();
             var knight = Hero("Knight", hp: 30);
-            var arcanist = Hero("Arcanist");
-            var trickster = Hero("Trickster");
 
-            run.StartNewRun(new[] { knight, arcanist, trickster }, seed: 42);
+            run.StartNewRun(new[] { knight, Hero("Arcanist"), Hero("Trickster") }, seed: 42);
 
             Assert.IsTrue(run.IsActive);
             Assert.AreEqual(42, run.Seed);
@@ -51,28 +34,25 @@ namespace DungeonDice.Tests
             Assert.AreEqual(3, run.Party.Count);
             Assert.AreEqual(30, run.Party[0].CurrentHealth);
             Assert.AreEqual(new[] { 0, 1, 2 }, run.Party.Select(h => h.Slot).ToArray());
-            Assert.AreNotSame(knight.PrimaryDie, run.Party[0].Die, "the hero's die is copied, never the asset");
-            Assert.AreEqual(knight.PrimaryDie.Faces.Length, run.Party[0].Die.Faces.Length);
-
+            Assert.AreSame(knight, run.Party[0].Definition);
+            Assert.AreEqual(RunState.DefaultResourceDice, run.ResourceDiceCount);
             run.Clear();
         }
 
         [Test]
-        public void Duplicates_GetSeparateDieCopies()
+        public void ResourceDice_StartFromTheRules_AndAreCapped()
         {
             var run = new RunState();
-            var knight = Hero("Knight");
-            run.StartNewRun(new[] { knight, knight, Hero("Trickster") }, 1);
+            run.StartNewRun(new[] { Hero("A"), Hero("B"), Hero("C") }, 1, resourceDice: 7);
+            Assert.AreEqual(7, run.ResourceDiceCount);
+            Assert.IsTrue(run.CanAddResourceDie);
+            Assert.IsTrue(run.AddResourceDie());
+            Assert.AreEqual(RunState.MaxResourceDice, run.ResourceDiceCount);
+            Assert.IsFalse(run.AddResourceDie());
+            Assert.AreEqual(RunState.MaxResourceDice, run.ResourceDiceCount);
 
-            Assert.AreSame(knight, run.Party[0].Definition);
-            Assert.AreSame(knight, run.Party[1].Definition);
-            Assert.AreNotSame(run.Party[0].Die, run.Party[1].Die);
-
-            run.Party[0].UpgradeFace(1, DieFace.Of("Strike 9", new FaceEffectEntry(FaceEffectKind.Strike, 9)));
-            Assert.AreEqual(9, run.Party[0].Die.GetFace(1).effects[0].value);
-            Assert.AreEqual(1, run.Party[1].Die.GetFace(1).Pips, "the twin is untouched");
-            Assert.AreEqual(1, knight.PrimaryDie.GetFace(1).Pips, "the asset is untouched");
-
+            run.StartNewRun(new[] { Hero("A"), Hero("B"), Hero("C") }, 1, resourceDice: 99);
+            Assert.AreEqual(RunState.MaxResourceDice, run.ResourceDiceCount, "clamped on start");
             run.Clear();
         }
 
@@ -129,37 +109,18 @@ namespace DungeonDice.Tests
         }
 
         [Test]
-        public void CarriedMana_LeavesAFightWithTheParty_AndIsSpentOnTheMap()
-        {
-            var run = new RunState();
-            run.StartNewRun(new[] { Hero("A"), Hero("B"), Hero("C") }, 9);
-            Assert.AreEqual(0, run.CarriedMana(DieColor.Yellow));
-
-            run.SetCarriedMana(1, 0, 4);
-            Assert.AreEqual(1, run.CarriedRed);
-            Assert.AreEqual(4, run.CarriedYellow);
-            Assert.IsFalse(run.SpendCarriedMana(DieColor.Blue, 1), "nothing to spend");
-            Assert.IsFalse(run.SpendCarriedMana(DieColor.Yellow, 5), "not enough");
-            Assert.AreEqual(4, run.CarriedYellow, "a refused spend changes nothing");
-            Assert.IsTrue(run.SpendCarriedMana(DieColor.Yellow, 3));
-            Assert.AreEqual(1, run.CarriedYellow);
-
-            run.Clear();
-            Assert.AreEqual(0, run.CarriedYellow + run.CarriedRed + run.CarriedBlue);
-        }
-
-        [Test]
         public void Clear_ForgetsEverything()
         {
             var run = new RunState();
-            run.StartNewRun(new[] { Hero("A"), Hero("B"), Hero("C") }, 5);
-            run.SetTraversalDice(new[] { Hero("T").PrimaryDie });
+            run.StartNewRun(new[] { Hero("A"), Hero("B"), Hero("C") }, 5, resourceDice: 7);
+            run.SetTraversalDice(new[] { TestDice.Numbers(m_created, "T", 1, 2, 3, 4, 5, 6) });
 
             run.Clear();
 
             Assert.IsFalse(run.IsActive);
             Assert.AreEqual(0, run.Party.Count);
             Assert.AreEqual(0, run.TraversalDice.Count);
+            Assert.AreEqual(RunState.DefaultResourceDice, run.ResourceDiceCount);
             Assert.AreEqual(0, run.CurrentNodeIndex);
             Assert.AreEqual(RunPhase.HeroPick, run.Phase);
             Assert.IsFalse(run.PartyWiped, "an inactive run is not a wipe");

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using DungeonDice.Combat;
 using DungeonDice.Core;
 using DungeonDice.Dice;
 using DungeonDice.Map;
@@ -14,7 +15,8 @@ namespace DungeonDice.Run
     /// screen via <see cref="ScreenRouter"/>. Screens call back into it (<see cref="StartRun"/>,
     /// <see cref="ConfirmTraversalDice"/>, <see cref="EnterCurrentNode"/>, <see cref="TravelTo"/>,
     /// <see cref="CompleteNode"/>) rather than touching the state directly. Also the one place that
-    /// knows which assets the run uses: the act, the dice box profiles, the starting traversal pool.
+    /// knows which assets the run uses: the act, the dice box profiles, the starting traversal pool,
+    /// the resource die and the combat rules.
     /// </summary>
     public class RunController : MonoBehaviour
     {
@@ -34,6 +36,11 @@ namespace DungeonDice.Run
         [SerializeField] private List<DieDefinition> m_rewardDicePool = new();
         [Range(0f, 1f)] [SerializeField] private float m_restHealFraction = 0.3f;
 
+        [Header("Combat")]
+        [Tooltip("The party's resource die: two faces of each colour. Every combat throw is copies of this.")]
+        [SerializeField] private DieDefinition m_resourceDie;
+        [SerializeField] private CombatRules m_rules = new();
+
         [Header("UI")]
         [SerializeField] private UI.IconLibrary m_icons;
 
@@ -43,9 +50,9 @@ namespace DungeonDice.Run
 
         [Header("Enemies")]
         [Tooltip("Combat nodes spawn two of these, picked with the run's seeded RNG.")]
-        [SerializeField] private List<Combat.EnemyDefinition> m_regularEnemies = new();
-        [SerializeField] private Combat.EnemyDefinition m_eliteEnemy;
-        [SerializeField] private Combat.EnemyDefinition m_bossEnemy;
+        [SerializeField] private List<EnemyDefinition> m_regularEnemies = new();
+        [SerializeField] private EnemyDefinition m_eliteEnemy;
+        [SerializeField] private EnemyDefinition m_bossEnemy;
         [Min(1)] [SerializeField] private int m_regularsPerCombat = 2;
 
         public RunState State { get; private set; } = new();
@@ -55,6 +62,8 @@ namespace DungeonDice.Run
         public ActDefinition Act => m_act;
         public DiceBoxProfile TraversalProfile => m_traversalProfile;
         public DiceBoxProfile CombatProfile => m_combatProfile;
+        public DieDefinition ResourceDie => m_resourceDie;
+        public CombatRules Rules => m_rules;
         /// <summary>Icon set for every screen; may be null in tests (screens fall back to text).</summary>
         public UI.IconLibrary Icons => m_icons;
         public static UI.IconLibrary CurrentIcons => Instance != null ? Instance.m_icons : null;
@@ -90,9 +99,9 @@ namespace DungeonDice.Run
         public void StartRun(IReadOnlyList<HeroDefinition> party)
         {
             int seed = m_seedOverride != 0 ? m_seedOverride : Environment.TickCount;
-            State.StartNewRun(party, seed);
+            State.StartNewRun(party, seed, m_rules.resourceDiceCount);
             RollService.ResetShared(seed);
-            Debug.Log($"RunController: run started, seed {seed}, party {string.Join(", ", party.Select(h => h.displayName))}.");
+            Debug.Log($"RunController: run started, seed {seed}, party {string.Join(", ", party.Select(h => h.displayName))}, {State.ResourceDiceCount} resource dice.");
             SetPhase(RunPhase.TraversalPick);
         }
 
@@ -130,7 +139,7 @@ namespace DungeonDice.Run
 
         /// <summary>
         /// Play the current node's content. Combat-type nodes hand off to the Combat phase and come
-        /// back through <see cref="CompleteNode"/>; Rest and Treasure resolve immediately.
+        /// back through <see cref="CompleteNode"/>; Rest resolves immediately; Treasure opens the Reward phase.
         /// </summary>
         public void EnterCurrentNode()
         {
@@ -220,29 +229,7 @@ namespace DungeonDice.Run
             SetPhase(RunPhase.RunEnd);
         }
 
-        // ---------------------------------------------------------------- Loaded Dice on the map
-
-        /// <summary>The living hero whose signature is Loaded Dice, or null.</summary>
-        public HeroRunState LoadedDiceCaster =>
-            State.LivingHeroes.FirstOrDefault(h => h.Definition.signatureKind == SignatureKind.LoadedDice);
-
-        /// <summary>
-        /// Loaded Dice works on traversal rolls too: it needs a living Trickster and 3 Yellow mana carried
-        /// out of the last fight (see <see cref="RunState.SetCarriedMana"/>).
-        /// </summary>
-        public bool CanCastLoadedDiceOnMap =>
-            State.IsActive && LoadedDiceCaster != null && State.CarriedMana(DieColor.Yellow) >= Combat.CombatState.SignatureCost;
-
-        /// <summary>Pay the Loaded Dice cost from carried mana. False if it cannot be afforded.</summary>
-        public bool PayLoadedDiceOnMap()
-        {
-            if (!CanCastLoadedDiceOnMap) return false;
-            State.SpendCarriedMana(DieColor.Yellow, Combat.CombatState.SignatureCost);
-            Debug.Log($"RunController: {LoadedDiceCaster.Definition.displayName} casts Loaded Dice on the map; Yellow left {State.CarriedYellow}.");
-            return true;
-        }
-
-        /// <summary>Move along a resolved node's exit (single exit or a path chosen by a fork roll).</summary>
+        /// <summary>Move along a resolved node's exit (single exit or a path the fork roll unlocked).</summary>
         public void TravelTo(int nodeIndex)
         {
             if (!State.CurrentNodeResolved)
@@ -258,9 +245,9 @@ namespace DungeonDice.Run
         /// The enemies a node spawns. Combat: two regulars chosen with the run RNG (repeats allowed);
         /// Elite and Boss: their single enemy. Empty if nothing is configured.
         /// </summary>
-        public List<Combat.EnemyDefinition> EnemiesFor(NodeType type)
+        public List<EnemyDefinition> EnemiesFor(NodeType type)
         {
-            var result = new List<Combat.EnemyDefinition>();
+            var result = new List<EnemyDefinition>();
             switch (type)
             {
                 case NodeType.Elite:
@@ -279,12 +266,19 @@ namespace DungeonDice.Run
         }
 
         /// <summary>Authoring-time wiring; the scene tool calls this.</summary>
-        public void ConfigureEnemies(IEnumerable<Combat.EnemyDefinition> regulars, Combat.EnemyDefinition elite, Combat.EnemyDefinition boss)
+        public void ConfigureEnemies(IEnumerable<EnemyDefinition> regulars, EnemyDefinition elite, EnemyDefinition boss)
         {
             m_regularEnemies.Clear();
             m_regularEnemies.AddRange(regulars);
             m_eliteEnemy = elite;
             m_bossEnemy = boss;
+        }
+
+        /// <summary>Authoring-time wiring; the scene tool calls this.</summary>
+        public void ConfigureCombat(DieDefinition resourceDie, CombatRules rules)
+        {
+            m_resourceDie = resourceDie;
+            m_rules = rules ?? new CombatRules();
         }
 
         /// <summary>Authoring-time wiring; the scene tool calls this.</summary>

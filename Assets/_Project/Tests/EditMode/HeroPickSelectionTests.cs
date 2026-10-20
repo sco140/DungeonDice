@@ -28,21 +28,7 @@ namespace DungeonDice.Tests
             m_created.Clear();
         }
 
-        private HeroDefinition Hero(string name, bool playable)
-        {
-            var hero = ScriptableObject.CreateInstance<HeroDefinition>();
-            hero.displayName = name;
-            hero.playableInPrototype = playable;
-            if (playable)
-            {
-                var die = ScriptableObject.CreateInstance<DieDefinition>();
-                die.SetFaces(Enumerable.Range(1, 6).Select(DieFace.Number).ToArray());
-                m_created.Add(die);
-                hero.dice.Add(die);
-            }
-            m_created.Add(hero);
-            return hero;
-        }
+        private HeroDefinition Hero(string name, bool playable) => TestHeroes.Simple(m_created, name, playable: playable);
 
         [Test]
         public void Add_AllowsDuplicates_RefusesLocked_StopsAtCapacity()
@@ -77,16 +63,16 @@ namespace DungeonDice.Tests
         }
 
         [Test]
-        public void IsPickable_RequiresPlayableAndADie()
+        public void IsPickable_RequiresPlayableAndAbilities()
         {
             Assert.IsTrue(HeroPickSelection.IsPickable(m_knight));
             Assert.IsFalse(HeroPickSelection.IsPickable(m_locked));
             Assert.IsFalse(HeroPickSelection.IsPickable(null));
 
-            var noDie = ScriptableObject.CreateInstance<HeroDefinition>();
-            noDie.playableInPrototype = true;
-            m_created.Add(noDie);
-            Assert.IsFalse(HeroPickSelection.IsPickable(noDie), "a playable hero without a die cannot be picked");
+            var noAbilities = ScriptableObject.CreateInstance<HeroDefinition>();
+            noAbilities.playableInPrototype = true;
+            m_created.Add(noAbilities);
+            Assert.IsFalse(HeroPickSelection.IsPickable(noAbilities), "a playable hero without abilities cannot be picked");
         }
     }
 }

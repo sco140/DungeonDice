@@ -10,35 +10,33 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 5859190561171f841b40a745f8d35706, type: 3}
-  m_Name: Knight
+  m_Name: Resource
   m_EditorClassIdentifier: DungeonDice::DungeonDice.Dice.DieDefinition
-  displayName: Knight
-  color: 1
-  visualMaterial: {fileID: 2100000, guid: 0711445adf5d30c40bd0eb92c9335290, type: 2}
+  displayName: Resource
+  color: 0
+  visualMaterial: {fileID: 2100000, guid: e8b5b628a7df3304ea784f49f8d5f3d9, type: 2}
   faces:
-  - label: Strike 3
+  - label: Red
     effects:
     - kind: 1
-      value: 3
-  - label: Shield 4
-    effects:
-    - kind: 2
-      value: 4
-  - label: Strike 3
+      value: 1
+  - label: Red
     effects:
     - kind: 1
-      value: 3
-  - label: Shield 4
+      value: 1
+  - label: Blue
     effects:
-    - kind: 2
-      value: 4
-  - label: Taunt + Shield 2
-    effects:
-    - kind: 3
-      value: 0
-    - kind: 2
+    - kind: 1
       value: 2
-  - label: Strike 5
+  - label: Blue
     effects:
     - kind: 1
-      value: 5
+      value: 2
+  - label: Yellow
+    effects:
+    - kind: 1
+      value: 3
+  - label: Yellow
+    effects:
+    - kind: 1
+      value: 3

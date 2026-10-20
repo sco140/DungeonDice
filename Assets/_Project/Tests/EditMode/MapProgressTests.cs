@@ -41,15 +41,7 @@ namespace DungeonDice.Tests
             return die;
         }
 
-        private HeroDefinition Hero(string name)
-        {
-            var hero = ScriptableObject.CreateInstance<HeroDefinition>();
-            hero.displayName = name;
-            hero.playableInPrototype = true;
-            hero.dice.Add(Die(name + " die"));
-            m_created.Add(hero);
-            return hero;
-        }
+        private HeroDefinition Hero(string name) => TestHeroes.Simple(m_created, name);
 
         private RunState ActiveRun()
         {

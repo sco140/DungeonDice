@@ -17,9 +17,5 @@ MonoBehaviour:
   maxHealth: 22
   playableInPrototype: 0
   description: Red + Blue. Damage plus poison combos. Coming later.
-  dice: []
-  signatureName: 
-  signatureDescription: 
-  signatureKind: 0
-  faceUpgrades: []
+  abilities: []
   portrait: {fileID: 0}

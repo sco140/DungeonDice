@@ -17,21 +17,18 @@ MonoBehaviour:
   nodes:
   - name: Vault Gate
     type: 0
-    description: The way in. Three doors; your dice choose.
+    description: The way in. Three doors; the higher you roll, the more of them open.
     nextNode: -1
     fork:
       minDice: 1
       maxDice: 3
       paths:
-      - minTotal: 1
-        maxTotal: 5
-        targetNode: 1
-      - minTotal: 6
-        maxTotal: 10
+      - threshold: 1
         targetNode: 2
-      - minTotal: 11
-        maxTotal: 18
+      - threshold: 7
         targetNode: 3
+      - threshold: 12
+        targetNode: 1
   - name: Forgotten Cache
     type: 4
     description: Something glints under the silt.
@@ -64,14 +61,11 @@ MonoBehaviour:
       minDice: 2
       maxDice: 3
       paths:
-      - minTotal: 2
-        maxTotal: 8
+      - threshold: 2
         targetNode: 5
-      - minTotal: 9
-        maxTotal: 13
+      - threshold: 9
         targetNode: 6
-      - minTotal: 14
-        maxTotal: 18
+      - threshold: 14
         targetNode: 7
   - name: Flooded Stair
     type: 1
@@ -99,18 +93,16 @@ MonoBehaviour:
       paths: []
   - name: Last Lantern
     type: 3
-    description: Roll all three. Low keeps you safe but slow; high goes straight
-      for the Boss.
+    description: Roll all three. Low means one more fight first; high opens the way
+      straight to the Boss.
     nextNode: -1
     fork:
       minDice: 3
       maxDice: 3
       paths:
-      - minTotal: 3
-        maxTotal: 10
+      - threshold: 3
         targetNode: 9
-      - minTotal: 11
-        maxTotal: 18
+      - threshold: 11
         targetNode: 10
   - name: Antechamber
     type: 1

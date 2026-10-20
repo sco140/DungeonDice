@@ -59,9 +59,9 @@ namespace DungeonDice.UI
             foreach (var hero in run.Party)
             {
                 string status = hero.IsAlive ? $"HP {hero.CurrentHealth}/{hero.MaxHealth}" : "fallen";
-                string upgrades = hero.AppliedUpgrades.Count > 0 ? $", {hero.AppliedUpgrades.Count} face upgrade(s)" : "";
-                lines.AppendLine($"  {hero.Definition.displayName}: {status}{upgrades}");
+                lines.AppendLine($"  {hero.Definition.displayName}: {status}");
             }
+            lines.AppendLine($"Resource dice: {run.ResourceDiceCount}");
             lines.AppendLine($"Traversal dice: {string.Join(", ", run.TraversalDice.Select(d => d.displayName))}");
             lines.AppendLine($"Seed: {run.Seed}");
             m_summary.text = lines.ToString();

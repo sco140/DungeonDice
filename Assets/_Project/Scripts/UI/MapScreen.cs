@@ -13,10 +13,11 @@ namespace DungeonDice.UI
 {
     /// <summary>
     /// The act as a left-to-right graph: every node is a card with its type icon, every exit is a
-    /// drawn edge, fork edges carry their bracket and (once dice are committed) the nominal odds.
-    /// The current node is highlighted; the next node is clickable when travel is possible. Below the
-    /// graph, a detail panel offers the current node's action: Enter, or the fork's dice toggles and
-    /// Roll, which opens the dice box with the Traversal profile. The settled total picks the path.
+    /// drawn edge, fork edges carry their threshold ("9+") and, once dice are committed, the chance of
+    /// unlocking that path. The current node is highlighted; clickable nodes are where travel is
+    /// possible. Below the graph, a detail panel offers the current node's action: Enter, or the
+    /// fork's dice toggles and Roll, which opens the dice box with the Traversal profile. The settled
+    /// total unlocks every path at or below it and the player picks one of them.
     /// </summary>
     public class MapScreen : MonoBehaviour
     {
@@ -24,6 +25,7 @@ namespace DungeonDice.UI
         private const float NodeHeight = 70f;
 
         private readonly List<int> m_committed = new();   // indices into RunState.TraversalDice
+        private readonly List<int> m_unlocked = new();    // node indices the last fork roll opened
         private readonly Dictionary<int, Button> m_nodeButtons = new();
         private TMP_Text m_party;
         private TMP_Text m_nodeTitle;
@@ -37,14 +39,9 @@ namespace DungeonDice.UI
         private bool m_built;
         private bool m_awaitingRoll;
 
-        // Loaded Dice on the map: pick one rolled die, then a face; once per fork.
-        private bool m_loadedDiceMode;
-        private int m_loadedDieOwner = -1;
-        private bool m_loadedDiceUsedThisFork;
-        private string m_loadedDiceNote;
-
-        /// <summary>Node the last fork roll chose; -1 when no roll is pending travel.</summary>
-        public int PendingTarget { get; private set; } = -1;
+        /// <summary>Nodes the last fork roll unlocked; empty when no roll is pending travel.</summary>
+        public IReadOnlyList<int> UnlockedTargets => m_unlocked;
+        public bool HasPendingChoice => m_unlocked.Count > 0;
         public int LastTotal { get; private set; }
         public bool AwaitingRoll => m_awaitingRoll;
         public IReadOnlyList<int> CommittedIndices => m_committed;
@@ -119,7 +116,7 @@ namespace DungeonDice.UI
             }
 
             m_party.text = string.Join("    ", run.Party.Select(h => $"{h.Definition.displayName} {h.CurrentHealth}/{h.MaxHealth}"))
-                           + $"    |    traversal dice: {string.Join(", ", run.TraversalDice.Select(d => d.displayName))}";
+                           + $"    |    {run.ResourceDiceCount} resource dice    |    traversal dice: {string.Join(", ", run.TraversalDice.Select(d => d.displayName))}";
 
             var current = run.CurrentNode;
             m_nodeTitle.text = $"{current.name}  <size=60%>({current.type})</size>";
@@ -128,23 +125,18 @@ namespace DungeonDice.UI
             BuildGraph(run);
 
             UiFactory.DestroyChildren(m_actions);
-            if (PendingTarget >= 0)
+            if (HasPendingChoice)
             {
-                var target = run.Act.Node(PendingTarget);
-                m_result.text = $"Rolled {LastTotal} → {target.name} ({target.type}){(m_loadedDiceNote != null ? $"    {m_loadedDiceNote}" : "")}";
-                m_graphHint.text = $"Click {target.name} or Continue to travel.";
-                if (m_loadedDiceMode)
+                var names = m_unlocked.Select(i => run.Act.Node(i).name).ToList();
+                m_result.text = $"Rolled {LastTotal}: {(m_unlocked.Count == 1 ? "one path open" : $"{m_unlocked.Count} paths open")} — {string.Join(", ", names)}.";
+                m_graphHint.text = m_unlocked.Count == 1 ? $"Click {names[0]} or Continue to travel." : "Click one of the open nodes, or a button below.";
+                foreach (var target in m_unlocked)
                 {
-                    BuildLoadedDiceActions(run);
-                    return;
-                }
-                UiFactory.Button(m_actions, "Continue", $"Continue to {target.name}", OnContinueAfterRoll, UiFactory.Accent, 22f, 50f)
-                    .GetComponentInChildren<TMP_Text>().color = Color.black;
-                if (CanOfferLoadedDice())
-                {
-                    var caster = RunController.Instance.LoadedDiceCaster;
-                    UiFactory.Button(m_actions, "LoadedDice", $"{caster.Definition.displayName}: Loaded Dice (3 Yellow, {run.CarriedYellow} carried) — change one rolled die to any face",
-                        BeginLoadedDice, new Color(0.4f, 0.33f, 0.1f, 1f), 20f, 46f);
+                    int index = target;
+                    var node = run.Act.Node(index);
+                    var path = current.fork.paths.First(p => p.targetNode == index);
+                    var b = UiFactory.Button(m_actions, $"Go{index}", $"{(m_unlocked.Count == 1 ? "Continue to" : "Travel to")} {node.name} ({node.type}, {path.Label(current.fork)})", () => ChooseTarget(index), UiFactory.Accent, 22f, 50f);
+                    b.GetComponentInChildren<TMP_Text>().color = Color.black;
                 }
                 return;
             }
@@ -157,7 +149,7 @@ namespace DungeonDice.UI
             }
             else if (current.HasFork)
             {
-                m_graphHint.text = "A fork: commit dice and roll. The total picks the path.";
+                m_graphHint.text = "A fork: commit dice and roll. The total unlocks every path at or below it; you choose.";
                 BuildForkActions(run, current.fork);
             }
             else if (current.nextNode >= 0)
@@ -201,30 +193,41 @@ namespace DungeonDice.UI
             }
 
             int next = NextNode(run);
-            var chosenEdge = PendingTarget >= 0 ? (run.CurrentNodeIndex, PendingTarget) : (-1, -1);
             var committed = CommittedDice(run);
             double[] odds = run.CurrentNode.HasFork && run.CurrentNode.fork.AllowsDiceCount(committed.Count)
                 ? ForkOdds.PathProbabilities(run.CurrentNode.fork, committed) : null;
 
             // Edges first so nodes draw on top.
-            foreach (var (from, to, bracket) in MapLayout.Edges(run.Act))
+            foreach (var (from, to, path) in MapLayout.Edges(run.Act))
             {
                 var a = Position(m_layout.For(from));
                 var b = Position(m_layout.For(to));
-                bool chosen = (from, to) == chosenEdge;
                 bool fromCurrent = from == run.CurrentNodeIndex && run.CurrentNodeResolved;
-                var color = chosen ? UiFactory.Accent : fromCurrent ? new Color(0.85f, 0.75f, 0.45f, 0.9f) : run.VisitedNodes.Contains(from) && run.VisitedNodes.Contains(to) ? new Color(0.6f, 0.6f, 0.6f, 0.8f) : new Color(0.35f, 0.35f, 0.4f, 0.8f);
-                DrawEdge(a, b, chosen ? 6f : 3f, color);
+                bool open = fromCurrent && m_unlocked.Contains(to);
+                bool closed = fromCurrent && HasPendingChoice && !open;
+                var color = open ? UiFactory.Accent
+                    : closed ? new Color(0.3f, 0.3f, 0.34f, 0.8f)
+                    : fromCurrent ? new Color(0.85f, 0.75f, 0.45f, 0.9f)
+                    : run.VisitedNodes.Contains(from) && run.VisitedNodes.Contains(to) ? new Color(0.6f, 0.6f, 0.6f, 0.8f)
+                    : new Color(0.35f, 0.35f, 0.4f, 0.8f);
+                DrawEdge(a, b, open ? 6f : 3f, color);
 
-                if (bracket != null)
+                if (path != null)
                 {
-                    string label = bracket.RangeLabel(run.CurrentNode.HasFork && from == run.CurrentNodeIndex ? run.CurrentNode.fork : run.Act.nodes[from].fork);
-                    if (odds != null && from == run.CurrentNodeIndex)
+                    var fork = run.Act.nodes[from].fork;
+                    string label = path.Label(fork);
+                    if (odds != null && from == run.CurrentNodeIndex && !HasPendingChoice)
                     {
-                        int pathIndex = run.CurrentNode.fork.paths.IndexOf(bracket);
+                        int pathIndex = fork.paths.IndexOf(path);
                         if (pathIndex >= 0) label += $"  {odds[pathIndex] * 100:0}%";
                     }
-                    DrawEdgeLabel(Vector2.Lerp(a, b, 0.45f), label, fromCurrent || chosen ? UiFactory.Accent : UiFactory.TextDim);
+                    else if (HasPendingChoice && from == run.CurrentNodeIndex)
+                    {
+                        label += open ? "  open" : "  locked";
+                    }
+                    // Edges that skip a column pass over other cards; keep their label near the source.
+                    bool longEdge = m_layout.For(to).Column - m_layout.For(from).Column > 1;
+                    DrawEdgeLabel(Vector2.Lerp(a, b, longEdge ? 0.22f : 0.45f), label, open || (fromCurrent && !closed) ? UiFactory.Accent : UiFactory.TextDim);
                 }
             }
 
@@ -234,7 +237,7 @@ namespace DungeonDice.UI
                 var node = run.Act.nodes[index];
                 bool isCurrent = index == run.CurrentNodeIndex;
                 bool visited = run.VisitedNodes.Contains(index);
-                bool clickable = index == next || index == PendingTarget;
+                bool clickable = index == next || m_unlocked.Contains(index);
                 var tint = isCurrent ? UiFactory.Accent : clickable ? new Color(0.5f, 0.42f, 0.2f, 1f) : visited ? new Color(0.3f, 0.3f, 0.34f, 1f) : UiFactory.PanelDark;
 
                 var button = UiFactory.Button(m_graph, $"Node{index}", "", () => OnNodeClicked(index), tint, 16f, NodeHeight);
@@ -284,7 +287,7 @@ namespace DungeonDice.UI
         {
             var panel = UiFactory.Panel(m_graph, "EdgeLabel", new Color(0.1f, 0.1f, 0.12f, 0.9f), stretch: false);
             panel.anchorMin = panel.anchorMax = new Vector2(0.5f, 0.5f);
-            panel.sizeDelta = new Vector2(96f, 26f);
+            panel.sizeDelta = new Vector2(104f, 26f);
             panel.anchoredPosition = at;
             var label = UiFactory.Label(panel, "Text", text, 15f, TextAlignmentOptions.Center, color);
             UiFactory.Stretch(label.rectTransform, 2f);
@@ -294,7 +297,7 @@ namespace DungeonDice.UI
         {
             var run = CurrentRun;
             if (run == null) return;
-            if (PendingTarget >= 0 && index == PendingTarget) OnContinueAfterRoll();
+            if (m_unlocked.Contains(index)) ChooseTarget(index);
             else if (index == NextNode(run)) Travel(index);
         }
 
@@ -317,7 +320,7 @@ namespace DungeonDice.UI
 
         private void BuildForkActions(RunState run, Fork fork)
         {
-            UiFactory.Label(m_actions, "ForkTitle", $"{fork.DiceCountLabel} dice. Click dice to commit; the edges show each path's odds.", 19f, TextAlignmentOptions.Left);
+            UiFactory.Label(m_actions, "ForkTitle", $"{fork.DiceCountLabel} dice. Click dice to commit; each edge shows its threshold and the chance of reaching it.", 19f, TextAlignmentOptions.Left);
 
             var diceRow = UiFactory.Group(m_actions, "DiceRow");
             UiFactory.Horizontal(diceRow, spacing: 8f, padding: 0, align: TextAnchor.MiddleLeft, expandChildren: false);
@@ -342,108 +345,11 @@ namespace DungeonDice.UI
 
             var committed = CommittedDice(run);
             bool countOk = fork.AllowsDiceCount(committed.Count);
-            UiFactory.Label(m_actions, "OddsNote", countOk ? "Nominal odds for fair dice; the throw decides." : $"Commit {fork.minDice}{(fork.maxDice != fork.minDice ? $"–{fork.maxDice}" : "")} dice.", 15f, TextAlignmentOptions.Left, UiFactory.TextDim, 20f);
+            UiFactory.Label(m_actions, "OddsNote", countOk ? "Nominal odds for fair dice; the throw decides. Higher totals keep the lower paths open too." : $"Commit {fork.minDice}{(fork.maxDice != fork.minDice ? $"–{fork.maxDice}" : "")} dice.", 15f, TextAlignmentOptions.Left, UiFactory.TextDim, 20f);
 
             var roll = UiFactory.Button(m_actions, "Roll", m_awaitingRoll ? "Throwing…" : $"Roll {committed.Count} dice", StartForkRoll, UiFactory.Accent, 22f, 50f);
             roll.interactable = countOk && !m_awaitingRoll;
             roll.GetComponentInChildren<TMP_Text>().color = Color.black;
-        }
-
-        // ---------------------------------------------------------------- Loaded Dice on the map
-
-        private bool CanOfferLoadedDice() =>
-            !m_loadedDiceUsedThisFork && RunController.Instance != null && RunController.Instance.CanCastLoadedDiceOnMap
-            && DiceManager.Instance != null && DiceManager.Instance.State == DiceBoxState.Settled && DiceManager.Instance.LastRoll != null;
-
-        public void BeginLoadedDice()
-        {
-            if (!CanOfferLoadedDice()) return;
-            m_loadedDiceMode = true;
-            m_loadedDieOwner = -1;
-            Refresh();
-        }
-
-        public void CancelLoadedDice()
-        {
-            m_loadedDiceMode = false;
-            m_loadedDieOwner = -1;
-            Refresh();
-        }
-
-        public void SelectLoadedDie(int ownerId)
-        {
-            m_loadedDieOwner = ownerId;
-            Refresh();
-        }
-
-        /// <summary>What the total and path would be if the selected die showed <paramref name="faceIndex"/>.</summary>
-        private (int total, MapNode target) PreviewLoaded(RunState run, RollResult result, int faceIndex)
-        {
-            int total = LastTotal - result.Pips + result.Die.Pips(faceIndex);
-            var path = ForkResolver.Resolve(run.CurrentNode.fork, total);
-            return (total, path != null ? run.Act.Node(path.targetNode) : null);
-        }
-
-        private void BuildLoadedDiceActions(RunState run)
-        {
-            var roll = DiceManager.Instance.LastRoll;
-            UiFactory.Label(m_actions, "LoadedTitle", m_loadedDieOwner < 0 ? "Loaded Dice: pick the die to change." : "Loaded Dice: pick its new face.", 20f, TextAlignmentOptions.Left, UiFactory.Accent);
-
-            var diceRow = UiFactory.Group(m_actions, "LoadedDice");
-            UiFactory.Horizontal(diceRow, spacing: 8f, padding: 0, align: TextAnchor.MiddleLeft, expandChildren: false);
-            UiFactory.FixedHeight(diceRow, 46f);
-            foreach (var result in roll.Results)
-            {
-                int owner = result.OwnerId;
-                bool selected = owner == m_loadedDieOwner;
-                var b = UiFactory.Button(diceRow, $"Loaded{owner}", $"{result.Die.displayName}: {result.Pips}", () => SelectLoadedDie(owner), selected ? UiFactory.Accent : UiFactory.PanelDark, 18f, 42f);
-                b.gameObject.GetComponent<LayoutElement>().preferredWidth = 220f;
-                if (selected) b.GetComponentInChildren<TMP_Text>().color = Color.black;
-            }
-
-            if (m_loadedDieOwner >= 0)
-            {
-                var result = roll.Results.First(r => r.OwnerId == m_loadedDieOwner);
-                var faceRow = UiFactory.Group(m_actions, "LoadedFaces");
-                UiFactory.Horizontal(faceRow, spacing: 8f, padding: 0, align: TextAnchor.MiddleLeft, expandChildren: false);
-                UiFactory.FixedHeight(faceRow, 46f);
-                for (int f = 1; f <= DieDefinition.FaceCount; f++)
-                {
-                    int face = f;
-                    var (total, target) = PreviewLoaded(run, result, face);
-                    var b = UiFactory.Button(faceRow, $"Face{f}", $"{result.Die.Pips(face)}: total {total} → {(target != null ? target.name : "?")}", () => ApplyLoadedDice(m_loadedDieOwner, face),
-                        face == result.FaceIndex ? UiFactory.PanelMid : UiFactory.PanelDark, 16f, 42f);
-                    b.gameObject.GetComponent<LayoutElement>().preferredWidth = 290f;
-                    b.interactable = face != result.FaceIndex;
-                }
-            }
-            UiFactory.Button(m_actions, "CancelLoaded", "Cancel", CancelLoadedDice, UiFactory.PanelMid, 18f, 42f);
-        }
-
-        /// <summary>
-        /// Cast Loaded Dice on the settled fork roll: pay 3 carried Yellow, set one die to a face (the box
-        /// turns the physical die), then re-resolve the path from the new total. Once per fork.
-        /// </summary>
-        public bool ApplyLoadedDice(int ownerId, int faceIndex)
-        {
-            var run = CurrentRun;
-            var node = run?.CurrentNode;
-            var box = DiceManager.Instance;
-            if (PendingTarget < 0 || node == null || !node.HasFork || !CanOfferLoadedDice()) return false;
-            if (box.GetResult(ownerId) == null || !DieDefinition.IsValidFaceIndex(faceIndex)) return false;
-            if (!RunController.Instance.PayLoadedDiceOnMap()) return false;
-
-            var result = DiceManager.ApplyModifier(ownerId, new ChooseResultModifier(faceIndex));
-            LastTotal = box.LastRoll.TotalPips;
-            var path = ForkResolver.Resolve(node.fork, LastTotal);
-            if (path != null) PendingTarget = path.targetNode;
-            m_loadedDiceUsedThisFork = true;
-            m_loadedDiceMode = false;
-            m_loadedDieOwner = -1;
-            m_loadedDiceNote = result != null ? $"Loaded Dice: {result.Die.displayName} set to {result.Pips}." : "Loaded Dice cast.";
-            Debug.Log($"MapScreen: {m_loadedDiceNote} New total {LastTotal} → node {PendingTarget}.");
-            Refresh();
-            return true;
         }
 
         // ---------------------------------------------------------------- actions (public for tests)
@@ -469,7 +375,7 @@ namespace DungeonDice.UI
         {
             var run = CurrentRun;
             var node = run?.CurrentNode;
-            if (node == null || !node.HasFork || m_awaitingRoll || DiceManager.Instance == null) return;
+            if (node == null || !node.HasFork || m_awaitingRoll || HasPendingChoice || DiceManager.Instance == null) return;
             var dice = CommittedDice(run);
             if (!node.fork.AllowsDiceCount(dice.Count)) return;
 
@@ -480,10 +386,6 @@ namespace DungeonDice.UI
             if (roller != null) roller.SetHint($"Fork at {node.name}: drag across the box to throw {dice.Count} {(dice.Count == 1 ? "die" : "dice")}");
             EventManager.TriggerEvent(GameEvents.OpenDiceBox);
             m_awaitingRoll = true;
-            m_loadedDiceUsedThisFork = false;
-            m_loadedDiceMode = false;
-            m_loadedDieOwner = -1;
-            m_loadedDiceNote = null;
             Refresh();
         }
 
@@ -496,21 +398,20 @@ namespace DungeonDice.UI
             if (node == null || !node.HasFork) return;
 
             LastTotal = roll.TotalPips;
-            var path = ForkResolver.Resolve(node.fork, LastTotal);
-            PendingTarget = path?.targetNode ?? -1;
-            Debug.Log($"MapScreen: fork roll {LastTotal} → node {PendingTarget}.");
+            m_unlocked.Clear();
+            m_unlocked.AddRange(ForkResolver.UnlockedTargets(node.fork, LastTotal));
+            Debug.Log($"MapScreen: fork roll {LastTotal} unlocks nodes {string.Join(", ", m_unlocked)}.");
             EventManager.TriggerEvent(GameEvents.DisableDiceLaunch);
             Refresh();
         }
 
-        private void OnContinueAfterRoll()
+        /// <summary>Travel along one of the paths the roll unlocked.</summary>
+        public void ChooseTarget(int nodeIndex)
         {
-            int target = PendingTarget;
-            PendingTarget = -1;
+            if (!m_unlocked.Contains(nodeIndex)) return;
+            m_unlocked.Clear();
             m_committed.Clear();
-            m_loadedDiceNote = null;
-            m_loadedDiceMode = false;
-            Travel(target);
+            Travel(nodeIndex);
         }
 
         private void Travel(int nodeIndex)

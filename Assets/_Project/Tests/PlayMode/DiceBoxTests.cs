@@ -54,7 +54,7 @@ namespace DungeonDice.Tests
         private static DieDefinition Load(string name)
         {
 #if UNITY_EDITOR
-            var die = UnityEditor.AssetDatabase.LoadAssetAtPath<DieDefinition>($"Assets/_Project/Data/Dice/Heroes/{name}.asset");
+            var die = UnityEditor.AssetDatabase.LoadAssetAtPath<DieDefinition>($"Assets/_Project/Data/Dice/Traversal/{name}.asset");
 #else
             DieDefinition die = null;
 #endif
@@ -72,11 +72,11 @@ namespace DungeonDice.Tests
         [UnityTest, Timeout(120000)]
         public IEnumerator Throw_Modify_Reroll_ThenSmallerSetup_AllComplete()
         {
-            var heroes = new[] { Load("Knight"), Load("Arcanist"), Load("Trickster") };
+            var dice = new[] { Load("LowRoad"), Load("Steady"), Load("HighRoad") };
             var defaultGravity = Physics.gravity;
 
-            // --- first throw: three dice, one per hero -------------------------------------------
-            DiceManager.SetUpDice(heroes);
+            // --- first throw: three dice ----------------------------------------------------------
+            DiceManager.SetUpDice(dice);
             Assert.AreEqual(DiceBoxState.Idle, DiceManager.Instance.State);
             Assert.AreEqual(3, DiceManager.Instance.ActiveDice.Count);
             yield return null;
@@ -90,7 +90,7 @@ namespace DungeonDice.Tests
             Assert.AreEqual(DiceBoxState.Settled, DiceManager.Instance.State);
             Assert.AreEqual(defaultGravity, Physics.gravity, "gravity restored on completion");
             Assert.AreEqual(new[] { 0, 1, 2 }, roll.Results.Select(r => r.OwnerId).ToArray());
-            Assert.AreEqual(heroes, roll.Results.Select(r => r.Die).ToArray(), "each result carries its hero's die");
+            Assert.AreEqual(dice, roll.Results.Select(r => r.Die).ToArray(), "each result carries its definition");
             Assert.AreSame(roll, DiceManager.Instance.LastRoll);
 
             // --- modifier: Flip die 0 and check the physical die shows the new face -------------
@@ -114,7 +114,7 @@ namespace DungeonDice.Tests
             Assert.AreEqual(modified.FaceIndex, reroll.Results[0].FaceIndex, "untouched die kept its (modified) result");
 
             // --- second setup with fewer dice than the pool must still complete -----------------
-            DiceManager.SetUpDice(new[] { heroes[0], heroes[2] });
+            DiceManager.SetUpDice(new[] { dice[0], dice[2] });
             Assert.AreEqual(2, DiceManager.Instance.ActiveDice.Count);
             Assert.IsNull(DiceManager.Instance.LastRoll, "setup clears the previous roll");
             yield return null;
@@ -131,7 +131,7 @@ namespace DungeonDice.Tests
             LogAssert.Expect(LogType.Warning, "DiceManager: no dice have been set up to launch.");
             DiceManager.LaunchDice(Vector3.forward);
 
-            DiceManager.SetUpDice(new[] { Load("Knight") });
+            DiceManager.SetUpDice(new[] { Load("Pilgrim") });
             LogAssert.Expect(LogType.Warning, "DiceManager: cannot relaunch while Idle.");
             DiceManager.RelaunchDice(new[] { 0 }, Vector3.forward);
             Assert.AreEqual(DiceBoxState.Idle, DiceManager.Instance.State);

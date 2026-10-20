@@ -63,6 +63,12 @@ namespace DungeonDice.EditorTools
                 Debug.LogError("PrototypeSceneAuthoring: traversal dice missing; run DungeonDice ▸ Author Prototype Dice first.");
                 return;
             }
+            var resourceDie = AssetDatabase.LoadAssetAtPath<Dice.DieDefinition>(DiceAssetAuthoring.ResourcePath);
+            if (resourceDie == null)
+            {
+                Debug.LogError("PrototypeSceneAuthoring: resource die missing; run DungeonDice ▸ Author Prototype Dice first.");
+                return;
+            }
             var traversalProfile = AssetDatabase.LoadAssetAtPath<Dice.DiceBoxProfile>(DiceBoxProfileAuthoring.TraversalProfilePath);
             var combatProfile = AssetDatabase.LoadAssetAtPath<Dice.DiceBoxProfile>(DiceBoxProfileAuthoring.CombatProfilePath);
             if (traversalProfile == null || combatProfile == null)
@@ -117,6 +123,7 @@ namespace DungeonDice.EditorTools
             };
             router.SetScreens(screens);
             runController.Configure(router, roster, act, traversalPool, rewardPool, traversalProfile, combatProfile);
+            runController.ConfigureCombat(resourceDie, new Combat.CombatRules()); // defaults: 6 dice, mana carries, no reroll
 
             var regulars = EnemyAssetAuthoring.Regulars.Select(EnemyAssetAuthoring.Load).ToList();
             var elite = EnemyAssetAuthoring.Load(EnemyAssetAuthoring.Elite);

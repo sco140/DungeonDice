@@ -41,14 +41,14 @@ namespace DungeonDice.Tests
         }
 
         [Test]
-        public void Edges_CarryForkBrackets()
+        public void Edges_CarryForkPaths()
         {
             var edges = MapLayout.Edges(m_act).ToList();
             var fromStart = edges.Where(e => e.from == 0).ToList();
             Assert.AreEqual(3, fromStart.Count);
-            Assert.IsTrue(fromStart.All(e => e.bracket != null));
+            Assert.IsTrue(fromStart.All(e => e.path != null));
             var single = edges.First(e => e.from == 1);
-            Assert.IsNull(single.bracket);
+            Assert.IsNull(single.path);
             Assert.AreEqual(4, single.to);
         }
 

@@ -19,14 +19,14 @@ namespace DungeonDice.Tests
         private const string PrefabPath = "Assets/_Project/Prefabs/DiceBox.prefab";
         private const string CombatPath = "Assets/_Project/Data/DiceBox/Combat.asset";
         private const string TraversalPath = "Assets/_Project/Data/DiceBox/Traversal.asset";
-        private const string KnightPath = "Assets/_Project/Data/Dice/Heroes/Knight.asset";
+        private const string ResourcePath = "Assets/_Project/Data/Dice/Resource.asset";
 
         private GameObject m_eventManager;
         private GameObject m_box;
         private DiceBoxVisuals m_visuals;
         private DiceBoxProfile m_combat;
         private DiceBoxProfile m_traversal;
-        private DieDefinition m_knight;
+        private DieDefinition m_resource;
         private DieDefinition m_plainDie;
 
         private static T Load<T>(string path) where T : Object
@@ -46,8 +46,8 @@ namespace DungeonDice.Tests
             m_eventManager = new GameObject("EventManager", typeof(EventManager));
             m_combat = Load<DiceBoxProfile>(CombatPath);
             m_traversal = Load<DiceBoxProfile>(TraversalPath);
-            m_knight = Load<DieDefinition>(KnightPath);
-            Assert.IsNotNull(m_knight.visualMaterial, "Knight should carry its own skin");
+            m_resource = Load<DieDefinition>(ResourcePath);
+            Assert.IsNotNull(m_resource.visualMaterial, "the resource die should carry its own skin");
 
             m_plainDie = ScriptableObject.CreateInstance<DieDefinition>();
             m_plainDie.SetFaces(Enumerable.Range(1, 6).Select(DieFace.Number).ToArray());
@@ -111,15 +111,15 @@ namespace DungeonDice.Tests
         [Test]
         public void Dice_UseTheirOwnSkin_OrTheProfileFallback()
         {
-            DiceManager.SetUpDice(new[] { m_knight, m_plainDie });
+            DiceManager.SetUpDice(new[] { m_resource, m_plainDie });
             var dice = DiceManager.Instance.ActiveDice;
             Material SkinOf(int owner) => dice.First(d => d.OwnerId == owner).GetComponentInChildren<MeshRenderer>().sharedMaterial;
 
-            Assert.AreEqual(m_knight.visualMaterial, SkinOf(0), "hero die keeps its own material");
+            Assert.AreEqual(m_resource.visualMaterial, SkinOf(0), "resource die keeps its own material");
             Assert.AreEqual(m_combat.defaultDieMaterial, SkinOf(1), "plain die takes the Combat fallback");
 
             m_visuals.ApplyProfile(m_traversal);
-            Assert.AreEqual(m_knight.visualMaterial, SkinOf(0), "hero skin survives a profile swap");
+            Assert.AreEqual(m_resource.visualMaterial, SkinOf(0), "resource skin survives a profile swap");
             Assert.AreEqual(m_traversal.defaultDieMaterial, SkinOf(1), "plain die follows the new fallback");
         }
     }

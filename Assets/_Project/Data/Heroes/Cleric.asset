@@ -17,9 +17,5 @@ MonoBehaviour:
   maxHealth: 22
   playableInPrototype: 0
   description: Blue + Yellow. Cleanse and heal, Bless another die. Coming later.
-  dice: []
-  signatureName: 
-  signatureDescription: 
-  signatureKind: 0
-  faceUpgrades: []
+  abilities: []
   portrait: {fileID: 0}

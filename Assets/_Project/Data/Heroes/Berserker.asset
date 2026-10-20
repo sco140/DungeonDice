@@ -17,9 +17,5 @@ MonoBehaviour:
   maxHealth: 28
   playableInPrototype: 0
   description: Red + Yellow. Heavy damage, self-modifying Rage. Coming later.
-  dice: []
-  signatureName: 
-  signatureDescription: 
-  signatureKind: 0
-  faceUpgrades: []
+  abilities: []
   portrait: {fileID: 0}

@@ -2,6 +2,8 @@
 
 _Snapshot taken 2026-10-19 from branch `ROBOCODY` (Unity 6000.3.5f2), **before prototype build-order step 1**. Written by reading every script, the scene, prefabs, and project settings, and by inspecting the live Editor._
 
+> **Status note (2026-10-20, after the design pivot):** the prototype now lives in `Assets/_Project/Scenes/Prototype.unity` and is described by `CLAUDE.md` (sections "Prototype conventions" and "Architecture"). Combat was pivoted back to the original design: the party throws six shared **resource dice** (two faces per colour), each settled die adds one mana of its colour, and heroes spend the pool on three abilities each (`AbilityDefinition` on `HeroDefinition`, `CombatRules` on `RunController`). Traversal forks are **threshold paths** (`ForkPath.threshold`): a roll unlocks every path at or below its total and the player chooses. Hero dice, use-or-bank, signature skills, face upgrades, Trickster face modifiers and the carried-mana map Loaded Dice were removed. The legacy SampleScene wiring below is unchanged and still the reference for `PlayerTeamManager`, `ResourceManager`, `BaseSkill` and the HUD.
+>
 > **Status note (after step 1, same day):** the live scripts now sit under `Assets/_Project/Scripts/` in the `DungeonDice` assembly, `BaseDice` became `DieDefinition`, `DieHandler.cs`/`LaunchDice.cs` were deleted, and `DiceManager` emits `RollCompleted` instead of summing mana. Items 1, 2, 7 (partly), 9, 12 and 17 (for `DiceManager`) in §9 are resolved. `CLAUDE.md` describes the current layout; this document remains the reference for the SampleScene wiring and the original event flow.
 
 ---

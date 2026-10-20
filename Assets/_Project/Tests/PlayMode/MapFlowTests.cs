@@ -14,7 +14,7 @@ namespace DungeonDice.Tests
 {
     /// <summary>
     /// Real scene, real physics: start a run, pick traversal dice, commit two at the first fork,
-    /// throw, land on the bracket's node, enter it, and come back to the map.
+    /// throw, see which paths the total unlocked, choose one, enter it, and come back to the map.
     /// </summary>
     public class MapFlowTests
     {
@@ -41,7 +41,7 @@ namespace DungeonDice.Tests
         }
 
         [UnityTest, Timeout(120000)]
-        public IEnumerator TraversalPick_ForkRoll_Travel_Enter_Return()
+        public IEnumerator TraversalPick_ForkRoll_Choose_Enter_Return()
         {
             var run = RunController.Instance;
             run.StartRun(run.Roster.Where(h => h.playableInPrototype).ToList());
@@ -84,32 +84,23 @@ namespace DungeonDice.Tests
             Assert.IsFalse(map.AwaitingRoll, "fork roll settled");
 
             var fork = run.Act.nodes[0].fork;
-            var expected = ForkResolver.Resolve(fork, map.LastTotal).targetNode;
-            Assert.AreEqual(expected, map.PendingTarget);
+            var expected = ForkResolver.UnlockedTargets(fork, map.LastTotal);
+            Assert.IsTrue(map.HasPendingChoice);
+            Assert.AreEqual(expected, map.UnlockedTargets.ToList());
             Assert.That(map.LastTotal, Is.InRange(2, 12), "two dice from Low Road + Steady");
+            Assert.That(map.UnlockedTargets, Does.Contain(2), "the always-open Combat path is unlocked whatever the total");
+            Assert.IsTrue(map.UnlockedTargets.All(i => map.NodeButtons[i].interactable), "unlocked nodes are clickable");
+            Assert.IsTrue(fork.paths.Select(p => p.targetNode).Except(map.UnlockedTargets).All(i => !map.NodeButtons[i].interactable), "locked nodes are not");
 
-            // Loaded Dice on the map: Yellow carried out of the last fight lets the Trickster set one rolled die.
-            Assert.IsFalse(run.CanCastLoadedDiceOnMap, "no carried mana yet");
-            run.State.SetCarriedMana(0, 0, 3);
-            Assert.IsTrue(run.CanCastLoadedDiceOnMap);
-            map.Refresh();
-            Assert.IsTrue(map.ApplyLoadedDice(0, 6));
-            Assert.AreEqual(6, DiceManager.Instance.LastRoll.Results[0].FaceIndex, "the physical result was set");
-            Assert.AreEqual(DiceManager.Instance.LastRoll.TotalPips, map.LastTotal, "the total follows the loaded die");
-            expected = ForkResolver.Resolve(fork, map.LastTotal).targetNode;
-            Assert.AreEqual(expected, map.PendingTarget, "the path is re-resolved");
-            Assert.AreEqual(0, run.State.CarriedYellow);
-            Assert.IsFalse(map.ApplyLoadedDice(1, 6), "once per fork, and the mana is gone");
-
-            // Continue travels to the chosen node, which is unresolved content.
-            var continueButton = map.GetComponentsInChildren<UnityEngine.UI.Button>(true).First(b => b.name == "Continue");
-            continueButton.onClick.Invoke();
-            Assert.AreEqual(expected, run.State.CurrentNodeIndex);
+            // Choose the highest unlocked path by clicking its node.
+            int chosen = map.UnlockedTargets.Last();
+            map.NodeButtons[chosen].onClick.Invoke();
+            Assert.AreEqual(chosen, run.State.CurrentNodeIndex);
             Assert.IsFalse(run.State.CurrentNodeResolved);
-            Assert.AreEqual(-1, map.PendingTarget);
+            Assert.IsFalse(map.HasPendingChoice);
 
             // Enter it. Combat-type nodes go to the Combat phase and come back via CompleteNode;
-            // Treasure resolves in place and grants a die.
+            // Treasure opens the reward screen.
             var node = run.State.CurrentNode;
             map.EnterNode();
             yield return null;
@@ -122,7 +113,6 @@ namespace DungeonDice.Tests
             }
             else if (node.type == NodeType.Treasure)
             {
-                // Treasure opens the reward screen; take the first option to get back to the map.
                 Assert.AreEqual(RunPhase.Reward, run.Phase);
                 Assert.IsNotNull(run.State.PendingReward);
                 run.ChooseReward(0);

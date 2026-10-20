@@ -59,7 +59,7 @@ namespace DungeonDice.Tests
             var screen = Object.FindFirstObjectByType<RewardScreen>();
             Assert.IsNotNull(screen);
             Assert.AreEqual(run.State.PendingReward.Options.Count, screen.OptionButtons.Count);
-            Assert.AreEqual(3, screen.OptionButtons.Count, "one die plus two hero upgrades with a fresh party");
+            Assert.AreEqual(2, screen.OptionButtons.Count, "one traversal die plus a seventh resource die");
 
             int diceBefore = run.State.TraversalDice.Count;
             int dieOption = run.State.PendingReward.Options.ToList().FindIndex(o => o.Kind == RewardKind.TraversalDie);
@@ -72,6 +72,23 @@ namespace DungeonDice.Tests
             Assert.AreEqual(diceBefore + 1, run.State.TraversalDice.Count);
             Assert.That(run.State.LastNodeSummary, Does.Contain("Treasure"));
             Assert.That(run.RewardDicePool, Does.Contain(run.State.TraversalDice.Last()));
+            Assert.AreEqual(6, run.State.ResourceDiceCount, "the die option leaves the resource count alone");
+        }
+
+        [UnityTest]
+        public IEnumerator Treasure_ResourceDieOption_RaisesTheCombatDiceCount()
+        {
+            var run = StartRunOnMap();
+            yield return null;
+            run.TravelTo(1);
+            run.EnterCurrentNode();
+            yield return null;
+            int option = run.State.PendingReward.Options.ToList().FindIndex(o => o.Kind == RewardKind.ResourceDie);
+            Assert.That(option, Is.GreaterThanOrEqualTo(0));
+            run.ChooseReward(option);
+            yield return null;
+            Assert.AreEqual(7, run.State.ResourceDiceCount);
+            Assert.That(run.State.LastNodeSummary, Does.Contain("seventh"));
         }
 
         [UnityTest]

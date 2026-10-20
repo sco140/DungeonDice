@@ -27,22 +27,17 @@ namespace DungeonDice.Tests
             m_created.Clear();
         }
 
-        private DieDefinition Die(params int[] pips)
-        {
-            var die = ScriptableObject.CreateInstance<DieDefinition>();
-            die.SetFaces(pips.Select(DieFace.Number).ToArray());
-            m_created.Add(die);
-            return die;
-        }
+        private DieDefinition Die(params int[] pips) => TestDice.Numbers(m_created, string.Join(",", pips), pips);
 
+        /// <summary>2–3 dice: node 1 always open, node 2 at 6+, node 3 at 11+.</summary>
         private static Fork ExampleFork() => new()
         {
             minDice = 2, maxDice = 3,
-            paths = new List<PathBracket>
+            paths = new List<ForkPath>
             {
-                new() { minTotal = 2, maxTotal = 5, targetNode = 1 },
-                new() { minTotal = 6, maxTotal = 10, targetNode = 2 },
-                new() { minTotal = 11, maxTotal = 18, targetNode = 3 },
+                new() { threshold = 2, targetNode = 1 },
+                new() { threshold = 6, targetNode = 2 },
+                new() { threshold = 11, targetNode = 3 },
             },
         };
 
@@ -67,14 +62,13 @@ namespace DungeonDice.Tests
         }
 
         [Test]
-        public void PathProbabilities_ProposalExample_TwoLowRoadsNearlyGuaranteeTreasure()
+        public void PathProbabilities_AreUnlockChances_NotExclusive()
         {
-            // "Two Low Road dice nearly guarantee Treasure": only 3+3 = 6 misses the <=5 bracket.
+            // Two Low Roads: totals 2–6. The 6+ path opens only on 3+3 (1/9); 11+ never.
             var odds = ForkOdds.PathProbabilities(ExampleFork(), new[] { m_lowRoad, m_lowRoad });
-            Assert.AreEqual(8.0 / 9, odds[0], 1e-9);
+            Assert.AreEqual(1.0, odds[0], 1e-9, "the lowest path is always open");
             Assert.AreEqual(1.0 / 9, odds[1], 1e-9);
             Assert.AreEqual(0.0, odds[2], 1e-9);
-            Assert.AreEqual(1.0, odds.Sum(), 1e-9);
         }
 
         [Test]
@@ -82,9 +76,9 @@ namespace DungeonDice.Tests
         {
             var odds = ForkOdds.PathProbabilities(ExampleFork(), new[] { m_wild, m_wild, m_wild });
             // totals: 3 (1/8), 8 (3/8), 13 (3/8), 18 (1/8)
-            Assert.AreEqual(1.0 / 8, odds[0], 1e-9);
-            Assert.AreEqual(3.0 / 8, odds[1], 1e-9);
-            Assert.AreEqual(4.0 / 8, odds[2], 1e-9);
+            Assert.AreEqual(1.0, odds[0], 1e-9);
+            Assert.AreEqual(7.0 / 8, odds[1], 1e-9, "6+ on anything but 1+1+1");
+            Assert.AreEqual(4.0 / 8, odds[2], 1e-9, "11+ on 13 or 18");
         }
 
         [Test]
@@ -97,54 +91,50 @@ namespace DungeonDice.Tests
 
         // --- resolver --------------------------------------------------------------
 
-        [TestCase(2, 1)]
-        [TestCase(5, 1)]
-        [TestCase(6, 2)]
-        [TestCase(10, 2)]
-        [TestCase(11, 3)]
-        [TestCase(18, 3)]
-        public void Resolve_PicksTheBracketContainingTheTotal(int total, int expectedNode)
+        [TestCase(2, new[] { 1 })]
+        [TestCase(5, new[] { 1 })]
+        [TestCase(6, new[] { 1, 2 })]
+        [TestCase(10, new[] { 1, 2 })]
+        [TestCase(11, new[] { 1, 2, 3 })]
+        [TestCase(18, new[] { 1, 2, 3 })]
+        public void Unlocked_OpensEveryPathAtOrBelowTheTotal(int total, int[] expectedNodes)
         {
-            Assert.AreEqual(expectedNode, ForkResolver.Resolve(ExampleFork(), total).targetNode);
+            Assert.AreEqual(expectedNodes, ForkResolver.UnlockedTargets(ExampleFork(), total).ToArray());
         }
 
         [Test]
-        public void Resolve_ClampsStrayTotals()
+        public void Unlocked_ClampsStrayTotalsToTheEasiestPath()
         {
-            Assert.AreEqual(1, ForkResolver.Resolve(ExampleFork(), 0).targetNode);
-            Assert.AreEqual(3, ForkResolver.Resolve(ExampleFork(), 99).targetNode);
+            Assert.AreEqual(new[] { 1 }, ForkResolver.UnlockedTargets(ExampleFork(), 0).ToArray());
+            Assert.IsEmpty(ForkResolver.Unlocked(null, 5));
         }
 
         // --- validator -------------------------------------------------------------
 
         [Test]
-        public void Validator_AcceptsAContiguousFork()
+        public void Validator_AcceptsAForkWithAnAlwaysOpenPath()
         {
             Assert.IsEmpty(ForkValidator.ValidateFork(ExampleFork(), nodeCount: 4));
         }
 
         [Test]
-        public void Validator_FindsGapsOverlapsAndMissingTargets()
+        public void Validator_FindsStrandingUnreachableAndMissingTargets()
         {
             var fork = ExampleFork();
-            fork.paths[1].minTotal = 7;          // gap at 6
-            fork.paths[2].minTotal = 10;         // overlaps 10
+            fork.paths[0].threshold = 3;         // nothing opens on a total of 2
+            fork.paths[2].threshold = 19;        // beyond 3×6
             fork.paths[2].targetNode = 42;       // missing node
-            fork.paths[0].minTotal = 3;          // gap below (min total is 2)
-            fork.paths[2].maxTotal = 17;         // gap above (max total is 18)
 
             var errors = ForkValidator.ValidateFork(fork, nodeCount: 4);
-            Assert.That(errors.Any(e => e.Contains("gap between 5 and 7")), errors.ToString());
-            Assert.That(errors.Any(e => e.Contains("overlap")), string.Join("\n", errors));
+            Assert.That(errors.Any(e => e.Contains("no path unlocks on the lowest total 2")), string.Join("\n", errors));
+            Assert.That(errors.Any(e => e.Contains("19+ is unreachable")), string.Join("\n", errors));
             Assert.That(errors.Any(e => e.Contains("missing node 42")), string.Join("\n", errors));
-            Assert.That(errors.Any(e => e.Contains("gap below")), string.Join("\n", errors));
-            Assert.That(errors.Any(e => e.Contains("gap above")), string.Join("\n", errors));
         }
 
         [Test]
         public void Validator_RejectsSinglePathAndBadDiceRange()
         {
-            var fork = new Fork { minDice = 3, maxDice = 2, paths = new List<PathBracket> { new() { minTotal = 3, maxTotal = 12, targetNode = 0 } } };
+            var fork = new Fork { minDice = 3, maxDice = 2, paths = new List<ForkPath> { new() { threshold = 3, targetNode = 0 } } };
             var errors = ForkValidator.ValidateFork(fork, nodeCount: 1);
             Assert.That(errors.Any(e => e.Contains("at least two paths")));
             Assert.That(errors.Any(e => e.Contains("dice range")));
@@ -179,12 +169,12 @@ namespace DungeonDice.Tests
         }
 
         [Test]
-        public void RangeLabel_ReadsLikeTheProposal()
+        public void Label_ReadsAsThreshold()
         {
             var fork = ExampleFork();
-            Assert.AreEqual("≤5", fork.paths[0].RangeLabel(fork));
-            Assert.AreEqual("6–10", fork.paths[1].RangeLabel(fork));
-            Assert.AreEqual("11+", fork.paths[2].RangeLabel(fork));
+            Assert.AreEqual("any", fork.paths[0].Label(fork));
+            Assert.AreEqual("6+", fork.paths[1].Label(fork));
+            Assert.AreEqual("11+", fork.paths[2].Label(fork));
         }
     }
 }

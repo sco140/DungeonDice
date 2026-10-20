@@ -16,31 +16,27 @@ MonoBehaviour:
   color: 1
   maxHealth: 30
   playableInPrototype: 1
-  description: Consistent and defensive. No bad faces.
-  dice:
-  - {fileID: 11400000, guid: eb61f06de3694b346b2cbf8f0c6f06a2, type: 2}
-  signatureName: Bulwark
-  signatureDescription: Shield 6 to all allies.
-  signatureKind: 1
-  faceUpgrades:
-  - faceIndex: 1
-    replacement:
-      label: Strike 4
-      effects:
-      - kind: 1
-        value: 4
-  - faceIndex: 2
-    replacement:
-      label: Shield 5
-      effects:
-      - kind: 2
-        value: 5
-  - faceIndex: 5
-    replacement:
-      label: Taunt + Shield 4
-      effects:
-      - kind: 3
-        value: 0
-      - kind: 2
-        value: 4
+  description: 'Consistent and defensive. Red mana: damage and block.'
+  abilities:
+  - name: Strike
+    description: Deal 3 damage to one enemy.
+    costColor: 1
+    cost: 1
+    kind: 0
+    value: 3
+    status: 0
+  - name: Shield
+    description: Shield yourself for 4.
+    costColor: 1
+    cost: 2
+    kind: 1
+    value: 4
+    status: 0
+  - name: Bulwark
+    description: Shield every living hero for 6.
+    costColor: 1
+    cost: 3
+    kind: 3
+    value: 6
+    status: 0
   portrait: {fileID: 0}

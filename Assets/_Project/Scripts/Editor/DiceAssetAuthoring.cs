@@ -5,19 +5,17 @@ using UnityEngine;
 namespace DungeonDice.EditorTools
 {
     /// <summary>
-    /// Creates or refreshes the prototype's DieDefinition assets from the design proposal tables.
-    /// Re-runnable: existing assets are updated in place so their GUIDs (and any references) survive.
+    /// Creates or refreshes the prototype's DieDefinition assets: the party's resource die, the
+    /// traversal dice and the legacy SampleScene die. Re-runnable: existing assets are updated in
+    /// place so their GUIDs (and any references) survive.
     /// </summary>
     public static class DiceAssetAuthoring
     {
-        private const string HeroDir = "Assets/_Project/Data/Dice/Heroes";
+        public const string ResourcePath = "Assets/_Project/Data/Dice/Resource.asset";
         private const string TraversalDir = "Assets/_Project/Data/Dice/Traversal";
-        private const string MaterialDir = "Assets/_Project/Data/Dice/Materials";
         private const string LegacyPath = "Assets/_Project/Data/Dice/LegacyDie.asset";
 
-        // Die skins from the bundled Dice_6 pack; yellow does not exist there, so it is a tinted copy.
-        private const string GlossyRedPath = "Assets/Dice/Dice_6/Materials/Plastic Glossy Pure red.mat";
-        private const string GlossyBluePath = "Assets/Dice/Dice_6/Materials/Plastic Glossy Pure blue.mat";
+        // Die skins from the bundled Dice_6 pack.
         private const string GlossyWhitePath = "Assets/Dice/Dice_6/Materials/Plastic Glossy Pure write.mat";
         private const string RoughRedPath = "Assets/Dice/Dice_6/Materials/Plastic Rough Scratched red.mat";
         private const string RoughBluePath = "Assets/Dice/Dice_6/Materials/Plastic Rough Scratched blue.mat";
@@ -25,42 +23,19 @@ namespace DungeonDice.EditorTools
         [MenuItem("DungeonDice/Author Prototype Dice")]
         public static void CreateAll()
         {
-            EnsureFolder(HeroDir);
+            EnsureFolder("Assets/_Project/Data/Dice");
             EnsureFolder(TraversalDir);
-            EnsureFolder(MaterialDir);
 
-            var red = AssetDatabase.LoadAssetAtPath<Material>(GlossyRedPath);
-            var blue = AssetDatabase.LoadAssetAtPath<Material>(GlossyBluePath);
-            var yellow = AuthoringUtil.UpsertTintedCopy($"{MaterialDir}/Die_Yellow.mat", GlossyWhitePath, new Color(1f, 0.8f, 0.15f));
+            var resourceSkin = AssetDatabase.LoadAssetAtPath<Material>(GlossyWhitePath);
             var traversalSkin = AssetDatabase.LoadAssetAtPath<Material>(RoughBluePath);
             var legacySkin = AssetDatabase.LoadAssetAtPath<Material>(RoughRedPath);
 
-            // Hero dice (one color domain each). Values are placeholders for tuning.
-            // Physical face order matters: opposite faces (1-6, 2-5, 3-4) should differ so Flip always
-            // changes something. Knight: Strike 3 | Strike 5, Shield 4 | Taunt + Shield 2, Strike 3 | Shield 4.
-            Upsert($"{HeroDir}/Knight.asset", "Knight", DieColor.Red, red,
-                F("Strike 3", E(FaceEffectKind.Strike, 3)),
-                F("Shield 4", E(FaceEffectKind.Shield, 4)),
-                F("Strike 3", E(FaceEffectKind.Strike, 3)),
-                F("Shield 4", E(FaceEffectKind.Shield, 4)),
-                F("Taunt + Shield 2", E(FaceEffectKind.Taunt), E(FaceEffectKind.Shield, 2)),
-                F("Strike 5", E(FaceEffectKind.Strike, 5)));
-
-            Upsert($"{HeroDir}/Arcanist.asset", "Arcanist", DieColor.Blue, blue,
-                F("Burn 2", E(FaceEffectKind.Burn, 2)),
-                F("Burn 2", E(FaceEffectKind.Burn, 2)),
-                F("Poison 3", E(FaceEffectKind.Poison, 3)),
-                F("Weaken", E(FaceEffectKind.Weaken, 1)),
-                F("Hex", E(FaceEffectKind.Hex, 1)),
-                F("Fizzle", E(FaceEffectKind.Fizzle)));
-
-            Upsert($"{HeroDir}/Trickster.asset", "Trickster", DieColor.Yellow, yellow,
-                F("Nudge ±1", E(FaceEffectKind.Nudge, 1)),
-                F("Nudge ±1", E(FaceEffectKind.Nudge, 1)),
-                F("Flip", E(FaceEffectKind.Flip)),
-                F("Reroll ally", E(FaceEffectKind.RerollAlly)),
-                F("Mirror", E(FaceEffectKind.Mirror)),
-                F("Jab 2", E(FaceEffectKind.Jab, 2)));
+            // The resource die (decision 2026-10-20): two faces per colour. The mesh shows pips, so the
+            // screen reads 1–2 as Red, 3–4 as Blue, 5–6 as Yellow; a colour-faced skin is a later art task.
+            Upsert(ResourcePath, "Resource", DieColor.None, resourceSkin,
+                DieFace.Mana(DieColor.Red), DieFace.Mana(DieColor.Red),
+                DieFace.Mana(DieColor.Blue), DieFace.Mana(DieColor.Blue),
+                DieFace.Mana(DieColor.Yellow), DieFace.Mana(DieColor.Yellow));
 
             // Traversal dice: pure numbers, no color, one shared stone-like skin.
             UpsertNumbers($"{TraversalDir}/LowRoad.asset", "Low Road", traversalSkin, 1, 1, 2, 2, 3, 3);
@@ -76,6 +51,8 @@ namespace DungeonDice.EditorTools
             AssetDatabase.Refresh();
             Debug.Log("DiceAssetAuthoring: prototype dice authored.");
         }
+
+        public static DieDefinition LoadResourceDie() => AssetDatabase.LoadAssetAtPath<DieDefinition>(ResourcePath);
 
         private static void UpsertNumbers(string path, string displayName, Material skin,
             int f1, int f2, int f3, int f4, int f5, int f6, DieColor color = DieColor.None)
@@ -103,10 +80,6 @@ namespace DungeonDice.EditorTools
             Debug.Log($"DiceAssetAuthoring: {(created ? "created" : "updated")} {path}");
             return die;
         }
-
-        private static FaceEffectEntry E(FaceEffectKind kind, int value = 0) => new FaceEffectEntry(kind, value);
-
-        private static DieFace F(string label, params FaceEffectEntry[] effects) => DieFace.Of(label, effects);
 
         private static void EnsureFolder(string path) => AuthoringUtil.EnsureFolder(path);
     }

@@ -50,7 +50,7 @@ namespace DungeonDice.UI
             UiFactory.Vertical(background, spacing: 16f, padding: 32);
 
             UiFactory.Label(background, "Title", "Choose your traversal dice", 48f, color: UiFactory.Accent, preferredHeight: 64f);
-            UiFactory.Label(background, "Explain", "At every fork you commit dice and roll; the total picks the path. Different faces, different odds.", 22f, color: UiFactory.TextDim, preferredHeight: 40f);
+            UiFactory.Label(background, "Explain", "At every fork you commit dice and roll; the total unlocks every path at or below it and you choose. Different faces, different odds.", 22f, color: UiFactory.TextDim, preferredHeight: 40f);
             m_hint = UiFactory.Label(background, "Hint", "", 24f, color: UiFactory.TextDim, preferredHeight: 36f);
 
             var row = UiFactory.Group(background, "Cards");

@@ -26,23 +26,14 @@ namespace DungeonDice.Run
         Defeat,
     }
 
-    /// <summary>One hero's mutable state for the current run: health and their (upgradeable) die copy.</summary>
+    /// <summary>One hero's mutable state for the current run: health. Abilities come from the definition.</summary>
     public sealed class HeroRunState
     {
         public HeroDefinition Definition { get; }
-        /// <summary>Slot in the party, 0–2. Doubles as the owner id of the hero's die in the box.</summary>
+        /// <summary>Slot in the party, 0–2.</summary>
         public int Slot { get; }
         public int MaxHealth { get; }
         public int CurrentHealth { get; private set; }
-        /// <summary>
-        /// Runtime copy of the hero's first die so face upgrades never touch the asset.
-        /// The prototype uses one die per hero; <see cref="HeroDefinition.dice"/> keeps a list for later.
-        /// </summary>
-        public DieDefinition Die { get; private set; }
-
-        /// <summary>Indices into <see cref="HeroDefinition.faceUpgrades"/> already taken this run.</summary>
-        public IReadOnlyCollection<int> AppliedUpgrades => m_appliedUpgrades;
-        private readonly HashSet<int> m_appliedUpgrades = new();
 
         public bool IsAlive => CurrentHealth > 0;
 
@@ -52,8 +43,6 @@ namespace DungeonDice.Run
             Slot = slot;
             MaxHealth = definition.maxHealth;
             CurrentHealth = definition.maxHealth;
-            Die = definition.PrimaryDie != null ? UnityEngine.Object.Instantiate(definition.PrimaryDie) : null;
-            if (Die != null) Die.name = $"{definition.displayName} die (slot {slot})";
         }
 
         /// <summary>Clamped damage; returns the amount actually lost.</summary>
@@ -72,58 +61,21 @@ namespace DungeonDice.Run
             CurrentHealth = Math.Min(MaxHealth, CurrentHealth + Math.Max(0, amount));
             return CurrentHealth - before;
         }
-
-        /// <summary>Face-replace upgrade (Treasure reward). Swaps the die copy, never the asset.</summary>
-        public void UpgradeFace(int faceIndex, DieFace replacement)
-        {
-            if (Die == null) throw new InvalidOperationException($"{Definition.displayName} has no die to upgrade.");
-            var upgraded = Die.WithFaceReplaced(faceIndex, replacement);
-            DestroyRuntimeObject(Die);
-            Die = upgraded;
-        }
-
-        /// <summary>Upgrades on the definition that have not been taken yet (as indices).</summary>
-        public IEnumerable<int> AvailableUpgrades()
-        {
-            var list = Definition.faceUpgrades;
-            if (list == null || Die == null) yield break;
-            for (int i = 0; i < list.Count; i++)
-            {
-                if (list[i] != null && !m_appliedUpgrades.Contains(i)) yield return i;
-            }
-        }
-
-        /// <summary>Take an upgrade from the definition's list (Treasure reward).</summary>
-        public void ApplyUpgrade(int upgradeIndex)
-        {
-            var list = Definition.faceUpgrades;
-            if (list == null || upgradeIndex < 0 || upgradeIndex >= list.Count)
-                throw new ArgumentOutOfRangeException(nameof(upgradeIndex));
-            if (!m_appliedUpgrades.Add(upgradeIndex))
-                throw new InvalidOperationException("Upgrade already applied.");
-            var upgrade = list[upgradeIndex];
-            UpgradeFace(upgrade.faceIndex, upgrade.replacement);
-        }
-
-        /// <summary>Destroy a runtime-created object in Play mode or in the Editor (tests run in edit mode).</summary>
-        internal static void DestroyRuntimeObject(UnityEngine.Object obj)
-        {
-            if (obj == null) return;
-            if (UnityEngine.Application.isPlaying) UnityEngine.Object.Destroy(obj);
-            else UnityEngine.Object.DestroyImmediate(obj);
-        }
     }
 
     /// <summary>
     /// Everything that persists across the screens of one run: the party, the traversal dice owned,
-    /// the act and position in it, the phase, the outcome and the seed. Plain C# so it can be
-    /// unit-tested; owned by <see cref="RunController"/>. Combat-scoped state (mana pool, statuses)
-    /// lives in combat, not here.
+    /// how many resource dice the party throws in combat, the act and position in it, the phase,
+    /// the outcome and the seed. Plain C# so it can be unit-tested; owned by <see cref="RunController"/>.
+    /// Combat-scoped state (mana pool, statuses, shields) lives in combat, not here.
     /// </summary>
     public sealed class RunState
     {
         public const int PartySize = 3;
         public const int TraversalPickCount = 3;
+        /// <summary>Treasure can add resource dice up to this many (decision 2026-10-20).</summary>
+        public const int MaxResourceDice = 8;
+        public const int DefaultResourceDice = 6;
 
         private readonly List<HeroRunState> m_party = new();
         private readonly List<DieDefinition> m_traversalDice = new();
@@ -136,43 +88,9 @@ namespace DungeonDice.Run
         public RollService Rng { get; private set; }
         public IReadOnlyList<HeroRunState> Party => m_party;
         public IReadOnlyList<DieDefinition> TraversalDice => m_traversalDice;
+        /// <summary>Resource dice the party throws each combat turn. Starts at the rules' count; Treasure can raise it.</summary>
+        public int ResourceDiceCount { get; private set; } = DefaultResourceDice;
         public bool IsActive { get; private set; }
-
-        // --- carried mana ---
-        // Combat pools reset per fight, but whatever was banked and not spent leaves the fight with
-        // the party, so Yellow can pay for Loaded Dice on a traversal roll. Spent only on the map.
-        public int CarriedRed { get; private set; }
-        public int CarriedBlue { get; private set; }
-        public int CarriedYellow { get; private set; }
-
-        public int CarriedMana(DieColor color) => color switch
-        {
-            DieColor.Red => CarriedRed,
-            DieColor.Blue => CarriedBlue,
-            DieColor.Yellow => CarriedYellow,
-            _ => 0,
-        };
-
-        public void SetCarriedMana(int red, int blue, int yellow)
-        {
-            CarriedRed = Math.Max(0, red);
-            CarriedBlue = Math.Max(0, blue);
-            CarriedYellow = Math.Max(0, yellow);
-        }
-
-        /// <summary>Spend carried mana; false (and nothing spent) if there is not enough.</summary>
-        public bool SpendCarriedMana(DieColor color, int amount)
-        {
-            if (amount <= 0 || CarriedMana(color) < amount) return false;
-            switch (color)
-            {
-                case DieColor.Red: CarriedRed -= amount; break;
-                case DieColor.Blue: CarriedBlue -= amount; break;
-                case DieColor.Yellow: CarriedYellow -= amount; break;
-                default: return false;
-            }
-            return true;
-        }
 
         // --- map progress ---
         public ActDefinition Act { get; private set; }
@@ -190,7 +108,7 @@ namespace DungeonDice.Run
         public bool PartyWiped => IsActive && m_party.All(h => !h.IsAlive);
 
         /// <summary>Begin a run with exactly <see cref="PartySize"/> playable heroes. Duplicates are allowed.</summary>
-        public void StartNewRun(IReadOnlyList<HeroDefinition> heroes, int seed)
+        public void StartNewRun(IReadOnlyList<HeroDefinition> heroes, int seed, int resourceDice = DefaultResourceDice)
         {
             if (heroes == null || heroes.Count != PartySize)
                 throw new ArgumentException($"A party needs exactly {PartySize} heroes.", nameof(heroes));
@@ -201,6 +119,7 @@ namespace DungeonDice.Run
             Clear();
             Seed = seed;
             Rng = new RollService(seed);
+            ResourceDiceCount = Math.Clamp(resourceDice, 1, MaxResourceDice);
             for (int i = 0; i < heroes.Count; i++) m_party.Add(new HeroRunState(heroes[i], i));
             Phase = RunPhase.TraversalPick;
             IsActive = true;
@@ -215,6 +134,16 @@ namespace DungeonDice.Run
         public void AddTraversalDie(DieDefinition die)
         {
             if (die != null) m_traversalDice.Add(die);
+        }
+
+        public bool CanAddResourceDie => ResourceDiceCount < MaxResourceDice;
+
+        /// <summary>Treasure reward: one more resource die in every combat throw. False at the cap.</summary>
+        public bool AddResourceDie()
+        {
+            if (!CanAddResourceDie) return false;
+            ResourceDiceCount++;
+            return true;
         }
 
         /// <summary>Place the party at the act's start node. The Start node has no content, so it is already resolved.</summary>
@@ -248,14 +177,13 @@ namespace DungeonDice.Run
             Phase = RunPhase.RunEnd;
         }
 
-        /// <summary>Forget the run. Destroys the heroes' runtime die copies.</summary>
+        /// <summary>Forget the run.</summary>
         public void Clear()
         {
-            foreach (var hero in m_party) HeroRunState.DestroyRuntimeObject(hero.Die);
             m_party.Clear();
             m_traversalDice.Clear();
             m_visited.Clear();
-            CarriedRed = CarriedBlue = CarriedYellow = 0;
+            ResourceDiceCount = DefaultResourceDice;
             Act = null;
             CurrentNodeIndex = 0;
             CurrentNodeResolved = false;

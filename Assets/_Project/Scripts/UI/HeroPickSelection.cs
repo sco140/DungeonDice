@@ -24,7 +24,7 @@ namespace DungeonDice.UI
             Capacity = capacity;
         }
 
-        public static bool IsPickable(HeroDefinition hero) => hero != null && hero.playableInPrototype && hero.PrimaryDie != null;
+        public static bool IsPickable(HeroDefinition hero) => hero != null && hero.playableInPrototype && hero.abilities != null && hero.abilities.Count > 0;
 
         /// <summary>Add a hero to the next free slot. Returns false if locked, null or the party is full.</summary>
         public bool TryAdd(HeroDefinition hero)

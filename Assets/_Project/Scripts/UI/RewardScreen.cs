@@ -59,7 +59,7 @@ namespace DungeonDice.UI
             {
                 int index = i;
                 var option = offer.Options[i];
-                var tint = option.Kind == RewardKind.TraversalDie ? new Color(0.16f, 0.3f, 0.3f, 1f) : UiFactory.PanelMid;
+                var tint = option.Kind == RewardKind.TraversalDie ? new Color(0.16f, 0.3f, 0.3f, 1f) : new Color(0.3f, 0.22f, 0.12f, 1f);
                 var card = UiFactory.Button(m_row, $"Option{i}", "", () => RunController.Instance?.ChooseReward(index), tint, 20f, 300f);
                 var oldLabel = card.GetComponentInChildren<TMP_Text>();
                 if (oldLabel != null) Destroy(oldLabel.gameObject);

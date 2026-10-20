@@ -131,20 +131,32 @@ namespace DungeonDice.Tests
         [Test]
         public void WithFaceReplaced_ReturnsCopyAndLeavesOriginalUntouched()
         {
-            var knight = ScriptableObject.CreateInstance<DieDefinition>();
-            m_created.Add(knight);
-            knight.color = DieColor.Red;
-            knight.SetFaces(Enumerable.Range(0, 6)
-                .Select(_ => DieFace.Of("Strike 3", new FaceEffectEntry(FaceEffectKind.Strike, 3))).ToArray());
-
-            var upgraded = knight.WithFaceReplaced(1, DieFace.Of("Strike 4", new FaceEffectEntry(FaceEffectKind.Strike, 4)));
+            var steady = NumberDie(3, 3, 3, 4, 4, 4);
+            var upgraded = steady.WithFaceReplaced(1, DieFace.Number(6));
             m_created.Add(upgraded);
 
-            Assert.AreNotSame(knight, upgraded);
-            Assert.AreEqual(DieColor.Red, upgraded.color);
-            Assert.AreEqual(4, upgraded.GetFace(1).effects[0].value);
-            Assert.AreEqual(3, knight.GetFace(1).effects[0].value, "original must not change");
-            Assert.AreEqual(3, upgraded.GetFace(2).effects[0].value, "other faces are copied");
+            Assert.AreNotSame(steady, upgraded);
+            Assert.AreEqual(6, upgraded.Pips(1));
+            Assert.AreEqual(3, steady.Pips(1), "original must not change");
+            Assert.AreEqual(3, upgraded.Pips(2), "other faces are copied");
+        }
+
+        [Test]
+        public void ResourceDie_FacesYieldColours_AndFaceIndexOfColorFindsThem()
+        {
+            var resource = TestDice.Resource(m_created);
+            Assert.IsTrue(resource.IsResource);
+            Assert.IsFalse(resource.IsTraversal);
+            Assert.AreEqual(DieColor.Red, new RollResult(resource, 2).ManaColor);
+            Assert.AreEqual(DieColor.Blue, new RollResult(resource, 3).ManaColor);
+            Assert.AreEqual(DieColor.Yellow, new RollResult(resource, 6).ManaColor);
+            Assert.AreEqual(0, new RollResult(resource, 6).Pips, "colour faces carry no pips");
+            Assert.AreEqual(DieColor.None, new RollResult(resource, 1).Color, "the die itself is uncoloured");
+            Assert.AreEqual(1, resource.FaceIndexOfColor(DieColor.Red));
+            Assert.AreEqual(3, resource.FaceIndexOfColor(DieColor.Blue));
+            Assert.AreEqual(5, resource.FaceIndexOfColor(DieColor.Yellow));
+            Assert.AreEqual(0, resource.FaceIndexOfColor(DieColor.None));
+            Assert.AreEqual(DieColor.None, Pilgrim().GetFace(1).ManaColor);
         }
 
         [Test]

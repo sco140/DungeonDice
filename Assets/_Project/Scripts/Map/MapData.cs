@@ -14,33 +14,27 @@ namespace DungeonDice.Map
         Boss,
     }
 
-    /// <summary>One exit of a fork: an inclusive range of roll totals and the node it leads to.</summary>
+    /// <summary>
+    /// One exit of a fork: the node it leads to and the roll total needed to unlock it ("9+").
+    /// A roll unlocks every path whose threshold it meets, and the player picks one of them.
+    /// </summary>
     [Serializable]
-    public class PathBracket
+    public class ForkPath
     {
-        public int minTotal;
-        public int maxTotal;
+        [Min(0)] public int threshold = 1;
         public int targetNode;
 
-        public bool Contains(int total) => total >= minTotal && total <= maxTotal;
+        public bool IsUnlockedBy(int total) => total >= threshold;
 
-        /// <summary>"≤5", "6–10" or "11+" depending on where the bracket sits in the fork's range.</summary>
-        public string RangeLabel(Fork fork)
-        {
-            bool openLow = minTotal <= fork.MinTotal;
-            bool openHigh = maxTotal >= fork.MaxTotal;
-            if (openLow && openHigh) return "any";
-            if (openLow) return $"≤{maxTotal}";
-            if (openHigh) return $"{minTotal}+";
-            return minTotal == maxTotal ? minTotal.ToString() : $"{minTotal}–{maxTotal}";
-        }
+        /// <summary>"any" when every possible total unlocks it, else "9+".</summary>
+        public string Label(Fork fork) => fork != null && threshold <= fork.MinTotal ? "any" : $"{threshold}+";
     }
 
     /// <summary>
-    /// A fork is resolved by rolling between <see cref="minDice"/> and <see cref="maxDice"/> traversal dice;
-    /// the summed total picks the path. Brackets must cover every total from
-    /// <see cref="MinTotal"/> to <see cref="MaxTotal"/> with no gaps or overlaps (see <c>ForkValidator</c>),
-    /// so the player never "fails" a roll.
+    /// A fork is rolled with between <see cref="minDice"/> and <see cref="maxDice"/> traversal dice;
+    /// the summed total unlocks every <see cref="ForkPath"/> at or below it and the player chooses
+    /// among the unlocked ones (decision 2026-10-20). At least one path must unlock on the lowest
+    /// possible total so a roll can never strand the party (see <c>ForkValidator</c>).
     /// </summary>
     [Serializable]
     public class Fork
@@ -51,7 +45,7 @@ namespace DungeonDice.Map
 
         [Min(1)] public int minDice = 1;
         [Min(1)] public int maxDice = 3;
-        public List<PathBracket> paths = new();
+        public List<ForkPath> paths = new();
 
         public bool HasPaths => paths != null && paths.Count > 0;
         public int MinTotal => minDice * MinFace;

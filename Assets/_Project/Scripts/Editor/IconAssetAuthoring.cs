@@ -43,11 +43,9 @@ namespace DungeonDice.EditorTools
             icons.poison = B("flask_full");
             icons.weaken = B("suit_hearts_broken");
             icons.hex = B("hexagon");
-            icons.nudge = B("arrow_horizontal");
-            icons.flip = B("card_flip");
-            icons.rerollAlly = B("dice_question");
-            icons.mirror = B("card_flipdouble");
-            icons.fizzle = B("dice_empty");
+            icons.detonate = B("fire");
+            icons.recolor = B("card_flip");
+            icons.reroll = B("dice_question");
             icons.number = B("dice");
 
             icons.intentAttack = B("sword");

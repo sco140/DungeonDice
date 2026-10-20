@@ -9,9 +9,9 @@ using UnityEngine.UI;
 namespace DungeonDice.UI
 {
     /// <summary>
-    /// Pick 3 of 6 hero dice. Six cards from <see cref="RunController.Roster"/> (locked ones greyed and
-    /// non-interactive), three party slots (click to remove) and a Start Run button. Layout is
-    /// final for the prototype; art is placeholder panels and text.
+    /// Pick 3 of 6 heroes. Six cards from <see cref="RunController.Roster"/> (locked ones greyed and
+    /// non-interactive) listing each hero's three abilities and costs, three party slots (click to
+    /// remove) and a Start Run button. Layout is final for the prototype; art is placeholder panels and text.
     /// </summary>
     public class HeroPickScreen : MonoBehaviour
     {
@@ -46,6 +46,8 @@ namespace DungeonDice.UI
         private IReadOnlyList<HeroDefinition> Roster =>
             RunController.Instance != null ? RunController.Instance.Roster : System.Array.Empty<HeroDefinition>();
 
+        private static IconLibrary Icons => RunController.CurrentIcons;
+
         private void Build()
         {
             m_built = true;
@@ -56,7 +58,8 @@ namespace DungeonDice.UI
             var column = UiFactory.Vertical(background, spacing: 16f, padding: 32);
             column.childForceExpandHeight = false;
 
-            var title = UiFactory.Label(background, "Title", "Choose your party", 48f, color: UiFactory.Accent, preferredHeight: 64f);
+            UiFactory.Label(background, "Title", "Choose your party", 48f, color: UiFactory.Accent, preferredHeight: 64f);
+            UiFactory.Label(background, "Explain", "In combat the party throws shared resource dice; each die adds one mana of its colour. Heroes spend that mana on their abilities.", 20f, color: UiFactory.TextDim, preferredHeight: 32f);
             m_hint = UiFactory.Label(background, "Hint", "", 24f, color: UiFactory.TextDim, preferredHeight: 36f);
 
             // Six hero cards in a row.
@@ -109,9 +112,12 @@ namespace DungeonDice.UI
 
             if (pickable)
             {
-                var faces = string.Join("\n", hero.PrimaryDie.Faces.Select(f => f.ToString()));
-                UiFactory.Label(column, "Faces", faces, 18f, TextAlignmentOptions.Center);
-                UiFactory.Label(column, "Signature", $"Signature: {hero.signatureName}\n{hero.signatureDescription}", 16f, color: UiFactory.TextDim);
+                foreach (var ability in hero.abilities)
+                {
+                    UiFactory.IconLabel(column, ability.name, Icons?.ForAbility(ability), $"{ability.name}  <size=80%>{ability.CostLabel}</size>", 18f, 24f,
+                        UiFactory.TextLight, IconLibrary.ManaColor(ability.costColor), TextAlignmentOptions.MidlineLeft);
+                    UiFactory.Label(column, $"{ability.name}Desc", ability.description, 14f, TextAlignmentOptions.TopLeft, UiFactory.TextDim);
+                }
             }
             else
             {
