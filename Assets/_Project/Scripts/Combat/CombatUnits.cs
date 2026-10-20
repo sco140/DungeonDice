@@ -51,6 +51,8 @@ namespace DungeonDice.Combat
         public StatusSet Statuses { get; } = new();
         /// <summary>Absorbs damage before HP. Expires at the end of the enemy turn.</summary>
         public int Shield { get; set; }
+        /// <summary>Abilities cast this turn; checked against <see cref="CombatRules.actionsPerHeroPerTurn"/>, reset each turn.</summary>
+        public int ActionsThisTurn { get; internal set; }
 
         public int Slot => Run.Slot;
         public string Name => Run.Definition.displayName;

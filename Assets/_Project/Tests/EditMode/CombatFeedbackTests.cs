@@ -44,7 +44,8 @@ namespace DungeonDice.Tests
         {
             var run = new RunState();
             run.StartNewRun(party, 1);
-            return (run, new CombatState(run.Party, new[] { enemy }, m_resource, new CombatRules(), new RollService(3)));
+            // No per-hero action limit: these tests chain several casts by one hero in a turn.
+            return (run, new CombatState(run.Party, new[] { enemy }, m_resource, new CombatRules { actionsPerHeroPerTurn = 0 }, new RollService(3)));
         }
 
         private void Roll(CombatState state, params int[] faces)

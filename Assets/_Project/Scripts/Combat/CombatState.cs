@@ -32,7 +32,7 @@ namespace DungeonDice.Combat
     /// <summary>
     /// The rules of one fight, with no Unity scene dependency. Each turn the party throws its resource
     /// dice; every settled die adds one mana of its colour to the pool; heroes spend the pool on their
-    /// abilities (any number of times while it lasts); then the enemies act on their telegraphed
+    /// abilities (one cast per hero per turn by default, see <see cref="CombatRules"/>); then the enemies act on their telegraphed
     /// intents. <see cref="UI.CombatScreen"/> feeds it dice results from the box and renders it.
     /// All randomness goes through the run's seeded <see cref="RollService"/>.
     /// </summary>
@@ -186,8 +186,14 @@ namespace DungeonDice.Combat
         {
             var hero = Hero(slot);
             var ability = AbilityOf(hero, abilityIndex);
-            return CanAct && hero is { IsAlive: true } && ability != null && Mana(ability.costColor) >= ability.cost;
+            return CanAct && hero is { IsAlive: true } && HasActionLeft(hero) && ability != null && Mana(ability.costColor) >= ability.cost;
         }
+
+        /// <summary>True while the hero is under <see cref="CombatRules.actionsPerHeroPerTurn"/> (0 = unlimited).</summary>
+        public bool HasActionLeft(int slot) => Hero(slot) is { } hero && HasActionLeft(hero);
+
+        private bool HasActionLeft(CombatHero hero) =>
+            Rules.actionsPerHeroPerTurn <= 0 || hero.ActionsThisTurn < Rules.actionsPerHeroPerTurn;
 
         private static AbilityDefinition AbilityOf(CombatHero hero, int index) =>
             hero != null && index >= 0 && index < hero.Abilities.Count ? hero.Abilities[index] : null;
@@ -214,7 +220,7 @@ namespace DungeonDice.Combat
         /// <summary>
         /// Cast an ability. <paramref name="target"/> is an enemy index or a die index per the ability's
         /// <see cref="AbilityDefinition.Target"/>; <paramref name="recolorTo"/> is the new colour for Recolour.
-        /// Abilities can be cast any number of times per turn while the pool covers them.
+        /// Each successful cast uses one of the hero's actions for the turn; a refused cast costs nothing.
         /// </summary>
         public bool Cast(int slot, int abilityIndex, int target = -1, DieColor recolorTo = DieColor.None)
         {
@@ -237,6 +243,7 @@ namespace DungeonDice.Combat
             if (!ok) return false;
 
             AddMana(ability.costColor, -ability.cost);
+            hero.ActionsThisTurn++;
             CheckVictory();
             Changed?.Invoke();
             return true;
@@ -409,6 +416,7 @@ namespace DungeonDice.Combat
             {
                 hero.Shield = 0;
                 hero.Statuses.Remove(StatusKind.Taunt);
+                hero.ActionsThisTurn = 0;
             }
 
             if (!LivingHeroes.Any())

@@ -5,7 +5,8 @@ namespace DungeonDice.Combat
 {
     /// <summary>
     /// The knobs of a fight that are design decisions rather than data: how many resource dice the
-    /// party rolls, whether unspent mana survives the turn, and whether a reroll step exists.
+    /// party rolls, whether unspent mana survives the turn, how many abilities each hero may cast per
+    /// turn, and whether a reroll step exists.
     /// Serialized on <c>RunController</c> so they can be flipped in the Inspector.
     /// </summary>
     [Serializable]
@@ -16,6 +17,9 @@ namespace DungeonDice.Combat
 
         [Tooltip("Decision (2026-10-20): mana carries between turns within a fight. Set false to wipe the pool each turn.")]
         public bool manaCarriesBetweenTurns = true;
+
+        [Tooltip("Decision (2026-10-20): each hero may cast one ability per turn. 0 = unlimited (any number of casts while the pool lasts).")]
+        [Min(0)] public int actionsPerHeroPerTurn = 1;
 
         [Tooltip("Decision (2026-10-20): no reroll for now. The Reroll phase and RelaunchDice path stay in place; set 1 to restore a once-per-turn re-throw, or raise it through an item later.")]
         [Min(0)] public int rerollsPerTurn = 0;

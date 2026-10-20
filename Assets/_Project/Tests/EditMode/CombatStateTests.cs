@@ -61,6 +61,9 @@ namespace DungeonDice.Tests
 
         private static int Ability(CombatHero hero, string name) => hero.Abilities.ToList().FindIndex(a => a.name == name);
 
+        /// <summary>Rules with no per-hero action limit, for tests that exercise several casts by one hero.</summary>
+        private static CombatRules Unlimited() => new() { actionsPerHeroPerTurn = 0 };
+
         // --- throw and pool ----------------------------------------------------------
 
         [Test]
@@ -130,12 +133,12 @@ namespace DungeonDice.Tests
         [Test]
         public void Knight_Strike_Shield_Bulwark_CostRedAndRepeat()
         {
-            var (run, state) = Fight(new[] { Enemy("Rat", 10, (IntentKind.Attack, 2)) });
+            var (run, state) = Fight(new[] { Enemy("Rat", 10, (IntentKind.Attack, 2)) }, Unlimited());
             Roll(state, 1, 1, 1, 1, 1, 2); // 6 Red
             var knight = state.Hero(0);
 
             Assert.IsTrue(state.Cast(0, Ability(knight, "Strike"), 0));
-            Assert.IsTrue(state.Cast(0, Ability(knight, "Strike"), 0), "abilities repeat while mana lasts");
+            Assert.IsTrue(state.Cast(0, Ability(knight, "Strike"), 0), "with no action limit, abilities repeat while mana lasts");
             Assert.AreEqual(4, state.Enemies[0].Health);
             Assert.AreEqual(4, state.Red);
 
@@ -155,7 +158,7 @@ namespace DungeonDice.Tests
         [Test]
         public void Arcanist_BurnPoisonDetonate_AndStatusTicks()
         {
-            var (run, state) = Fight(new[] { Enemy("Wall", 30, (IntentKind.Block, 2)) });
+            var (run, state) = Fight(new[] { Enemy("Wall", 30, (IntentKind.Block, 2)) }, Unlimited());
             Roll(state, 3, 3, 3, 3, 3, 4); // 6 Blue
             var arcanist = state.Hero(1);
             var enemy = state.Enemies[0];
@@ -244,6 +247,32 @@ namespace DungeonDice.Tests
             run.Clear();
         }
 
+        [Test]
+        public void ByDefault_EachHeroCastsOncePerTurn_RefusalsAreFree_AndTheLimitResets()
+        {
+            var (run, state) = Fight(new[] { Enemy("Wall", 50, (IntentKind.Block, 1)) });
+            Assert.AreEqual(1, state.Rules.actionsPerHeroPerTurn, "one action per hero is the default");
+            Roll(state, 1, 1, 1, 1, 3, 5); // 4 Red, 1 Blue, 1 Yellow
+            var knight = state.Hero(0);
+
+            Assert.IsFalse(state.Cast(0, Ability(knight, "Strike"), 99), "a refused cast (bad target) does not use the action");
+            Assert.IsTrue(state.HasActionLeft(0));
+            Assert.IsTrue(state.Cast(0, Ability(knight, "Strike"), 0));
+            Assert.IsFalse(state.HasActionLeft(0));
+            Assert.IsFalse(state.CanCast(0, Ability(knight, "Shield")), "the Knight has acted, even with Red left");
+            Assert.IsFalse(state.Cast(0, Ability(knight, "Strike"), 0));
+            Assert.AreEqual(3, state.Red);
+
+            Assert.IsTrue(state.Cast(1, Ability(state.Hero(1), "Burn"), 0), "other heroes still have their action");
+            Assert.IsTrue(state.Cast(2, Ability(state.Hero(2), "Jab"), 0));
+
+            state.EndHeroTurn();
+            Roll(state, 1, 1, 1, 1, 1, 1);
+            Assert.IsTrue(state.HasActionLeft(0), "actions reset each turn");
+            Assert.IsTrue(state.Cast(0, Ability(knight, "Strike"), 0));
+            run.Clear();
+        }
+
         // --- enemy turn --------------------------------------------------------------
 
         [Test]
@@ -289,7 +318,7 @@ namespace DungeonDice.Tests
         [Test]
         public void Victory_WhenTheLastEnemyDies_AndDefeat_WhenThePartyDoes()
         {
-            var (run, win) = Fight(new[] { Enemy("Rat", 3, (IntentKind.Attack, 1)), Enemy("Rat", 3, (IntentKind.Attack, 1)) });
+            var (run, win) = Fight(new[] { Enemy("Rat", 3, (IntentKind.Attack, 1)), Enemy("Rat", 3, (IntentKind.Attack, 1)) }, Unlimited());
             Roll(win, 1, 1, 1, 1, 1, 1);
             win.Cast(0, 0, 0);
             Assert.AreEqual(CombatPhase.Act, win.Phase, "one enemy still up");

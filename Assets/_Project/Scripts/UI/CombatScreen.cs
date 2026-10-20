@@ -494,6 +494,8 @@ namespace DungeonDice.UI
             }
 
             bool canUseButtons = state.CanAct && m_pendingSlot < 0 && !m_waitingForThrow;
+            if (state.Phase == CombatPhase.Act && !state.HasActionLeft(slot))
+                UiFactory.Label(body, "Acted", "Acted this turn", 18f, color: UiFactory.Accent);
             for (int i = 0; i < hero.Abilities.Count; i++)
             {
                 int abilityIndex = i;
@@ -536,7 +538,8 @@ namespace DungeonDice.UI
             return state.Phase switch
             {
                 CombatPhase.Reroll => "Pick dice to re-throw, or keep them all.",
-                CombatPhase.Act => "Each die added one mana of its colour. Spend the pool on abilities (as often as it lasts), then end the turn."
+                CombatPhase.Act => "Each die added one mana of its colour. Spend the pool on abilities, then end the turn."
+                                   + (state.Rules.actionsPerHeroPerTurn > 0 ? $" Each hero acts {(state.Rules.actionsPerHeroPerTurn == 1 ? "once" : $"{state.Rules.actionsPerHeroPerTurn} times")} per turn." : "")
                                    + (state.Rules.manaCarriesBetweenTurns ? " Unspent mana carries over." : " Unspent mana is lost at end of turn."),
                 CombatPhase.Won => "Victory. Continue to the map.",
                 CombatPhase.Lost => "The party has fallen.",
