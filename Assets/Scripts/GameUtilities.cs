@@ -1,7 +1,5 @@
 ﻿using System;
-using System.Collections;
 using System.Collections.Generic;
-using UnityEngine;
 
 namespace GameUtility
 {
@@ -12,6 +10,7 @@ namespace GameUtility
         YELLOW,
         BLANK,
     }
+
     public enum ManaColor
     {
         Generic,
@@ -40,5 +39,52 @@ namespace GameUtility
                 { ManaColor.Blue, blue },
             };
         }
+    }
+
+    [Serializable]
+    public struct EffectInfo
+    {
+        UnitController owner;
+        UnitController target;
+        Dictionary<string, int> effectParams;
+    }
+    public enum StatusEffect
+    {
+        None = 0,
+        Armor = 1 << 0,
+        Burn = 1 << 1,
+        Bleeding = 1 << 2,
+        CarrionArmor = 1 << 3,
+        Cooldown = 1 << 4,
+        Usage_Cooldown = 1 << 5,
+        Fear = 1 << 6,
+        Freeze = 1 << 7,
+        Poison = 1 << 8,
+        Stun = 1 << 9,
+        MAX,
+    }
+
+    [Serializable]
+    public struct StatusPackage
+    {
+        UnitController target;
+        StatusEffect statusEffect;
+        Dictionary<string, int> statusParams;
+    }
+    public enum TriggerType
+    {
+        BeforeTurnStart,
+        AfterTurnStart,
+        BeforeTurnEnd,
+        AfterTurnEnd,
+        BeforeSkillActivate,
+        AfterSkillActivate,
+        BeforeResourceGain,
+        AfterResourceGain,
+        BeforeRollDice,
+        AfterRollDice,
+        BeforeDamageTaken,
+        AfterDamageTaken,
+        MAX
     }
 }
