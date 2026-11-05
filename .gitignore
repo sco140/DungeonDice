@@ -169,3 +169,9 @@ Packages/manifest.json
 
 # Unity Test Framework temporary bootstrap scene (exists only while PlayMode tests run)
 /Assets/InitTestScene*
+
+# graphify: commit the readable graph, keep the machine-local rebuild state out
+graphify-out/cache/
+graphify-out/manifest.json
+graphify-out/cost.json
+graphify-out/.graphify_*
