@@ -1,7 +1,8 @@
 using UnityEngine;
-using UnityEngine.Events;
+using System.Collections.Generic;
+using GameUtility;
 
-using SkillDataTable = System.Collections.Generic.Dictionary<string, uint>;
+using SkillDataTable = GameUtility.SerializableDictionary<string, int>;
 
 [CreateAssetMenu(
     fileName = "BaseSkill", 
@@ -14,11 +15,16 @@ public abstract class BaseSkill : ScriptableObject
     /// TKey - Skill data name.
     /// TValue - Value of the data associated with the key.
     /// </summary>
+    [SerializeField]
     public SkillDataTable m_skillData;
-    /// <summary>
-    /// Events triggered when the skill is used.
-    ///  <param name="UnitController">The unit that is the target of the skill.</param>
-    ///  <param name="SkillDataTable">The skill data table.</param>
-    /// </summary>
-    public UnityEvent<UnitController, SkillDataTable> m_skillEffects;
+    public List<BaseSkillEffect> m_skillEffectList;
+    public virtual void Execute(
+     UnitController caster,
+     UnitController target)
+    {
+        foreach (var effect in m_skillEffectList)
+        {
+            effect.Execute(caster, target, m_skillData);
+        }
+    }
 }
