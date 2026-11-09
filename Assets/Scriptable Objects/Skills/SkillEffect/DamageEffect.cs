@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-[CreateAssetMenu(fileName = "DamageEffect", menuName = "Scriptable Objects/DamageEffect")]
+[CreateAssetMenu(fileName = "DamageEffect", menuName = "Scriptable Objects/Effect/DamageEffect")]
 public class DamageEffect : BaseSkillEffect
 {
     public override void Execute(
