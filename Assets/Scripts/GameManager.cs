@@ -1,6 +1,10 @@
 using GameUtility;
 using UnityEngine;
-
+public enum UnitType
+{
+    PLAYER = 0,
+    ENEMY = 1
+}
 public class GameManager : MonoBehaviour
 {
     public static GameManager Instance { get; private set; }
@@ -31,5 +35,21 @@ public class GameManager : MonoBehaviour
     {
         // Turn on the dice roller UI when the turn starts.
         EventManager.TriggerEvent("EnableDiceLaunch", PlayerTeamManager.DiceCount);
+    }
+
+    public bool TryGetUnit(int unitType, int unitId, out GameObject unit)
+    {
+        unit = null;
+        switch ((UnitType)unitType)
+        {
+            case UnitType.PLAYER:
+                return PlayerTeamManager.Instance.TryGetUnit(unitId, out unit);
+            case UnitType.ENEMY:
+                Debug.Log("Trying to get enemy unit with ID: " + unitId);
+                Debug.Log("Not Implemented");
+                //return EnemyTeamManager.Instance.TryGetUnit(unitId, out unit);
+                break;
+        }
+        return false;
     }
 }

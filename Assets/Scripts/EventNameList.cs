@@ -1,30 +1,30 @@
 ﻿
 namespace GameUtility
 {
-    public class EventNames
+    public static class EventNames
     {
         // Gameplay Events
-        public string BeforeDamageApplied = "BeforeDamageApplied";
-        public string AfterDamageApplied = "AfterDamageApplied";
-        public string BeforeHealingApplied = "BeforeHealingApplied";
-        public string AfterHealingApplied = "AfterHealingApplied";
-        public string BeforeStatusApplied = "BeforeStatusApplied";
-        public string AfterStatusApplied = "AfterStatusApplied";
-        public string BeforeUnitAttack = "BeforeUnitAttack";
-        public string AfterUnitAttack = "AfterUnitAttack";
-        public string BeforeUnitDeath = "BeforeUnitDeath";
-        public string AfterUnitDeath = "AfterUnitDeath";
+        public const string BeforeDamageApplied = "BeforeDamageApplied";
+        public const string AfterDamageApplied = "AfterDamageApplied";
+        public const string BeforeHealingApplied = "BeforeHealingApplied";
+        public const string AfterHealingApplied = "AfterHealingApplied";
+        public const string BeforeStatusApplied = "BeforeStatusApplied";
+        public const string AfterStatusApplied = "AfterStatusApplied";
+        public const string BeforeUnitAttack = "BeforeUnitAttack";
+        public const string AfterUnitAttack = "AfterUnitAttack";
+        public const string BeforeUnitDeath = "BeforeUnitDeath";
+        public const string AfterUnitDeath = "AfterUnitDeath";
         // Status Effects
-        public string BeforeBurnDamageApplied = "BeforeBurnDamageApplied";
-        public string AfterBurnDamageApplied = "AfterBurnDamageApplied";
-        public string BeforeBleedingDamageApplied = "BeforeBleedingDamageApplied";
-        public string AfterBleedingDamageApplied = "AfterBleedingDamageApplied";
+        public const string BeforeBurnDamageApplied = "BeforeBurnDamageApplied";
+        public const string AfterBurnDamageApplied = "AfterBurnDamageApplied";
+        public const string BeforeBleedingDamageApplied = "BeforeBleedingDamageApplied";
+        public const string AfterBleedingDamageApplied = "AfterBleedingDamageApplied";
         // Dice Events
-        public string SetUpDice = "SetUpDice";
-        public string LaunchDice = "LaunchDice";
-        public string BeforeDiceRoll = "BeforeDiceRoll";
-        public string AfterDiceRoll = "AfterDiceRoll";
-        public string EnableDiceLaunch = "EnableDiceLaunch";
-        public string DisableDiceLaunch = "DisableDiceLaunch";
+        public const string SetUpDice = "SetUpDice";
+        public const string LaunchDice = "LaunchDice";
+        public const string BeforeDiceRoll = "BeforeDiceRoll";
+        public const string AfterDiceRoll = "AfterDiceRoll";
+        public const string EnableDiceLaunch = "EnableDiceLaunch";
+        public const string DisableDiceLaunch = "DisableDiceLaunch";
     }
 }

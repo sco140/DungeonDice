@@ -102,4 +102,9 @@ public class PlayerTeamManager : MonoBehaviour
         // Send the event to all listeners to update affect this value.
         EventManager.TriggerEvent("AfterResourceUpdate", eventData);
     }
+
+    internal bool TryGetUnit(int unitId, out GameObject unit)
+    {
+        throw new NotImplementedException();
+    }
 }
