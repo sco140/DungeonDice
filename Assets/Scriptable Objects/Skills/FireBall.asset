@@ -22,5 +22,4 @@ MonoBehaviour:
     values: 030000000200000001000000
   m_skillEffectList:
   - {fileID: 11400000, guid: a1f81317bda61324abbb1b2faa384616, type: 2}
-  - {fileID: 11400000, guid: 912bf609c96b74441b5a87b5d1943aef, type: 2}
-  - {fileID: 11400000, guid: 912bf609c96b74441b5a87b5d1943aef, type: 2}
+  - {fileID: 11400000, guid: 88c62d45b9e912543aaf6240031ac070, type: 2}
