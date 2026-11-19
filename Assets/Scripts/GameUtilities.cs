@@ -50,7 +50,7 @@ namespace GameUtility
         UnitController target;
         Dictionary<string, int> effectParams;
     }
-    public enum StatusEffect
+    public enum StatusTypes
     {
         None = 0,
         Armor = 1 << 0,
@@ -70,7 +70,7 @@ namespace GameUtility
     public struct StatusPackage
     {
         UnitController target;
-        StatusEffect statusEffect;
+        StatusTypes statusEffect;
         Dictionary<string, int> statusParams;
     }
     public enum TriggerType

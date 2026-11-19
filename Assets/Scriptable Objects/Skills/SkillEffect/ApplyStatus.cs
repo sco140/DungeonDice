@@ -7,7 +7,7 @@ public class ApplyStatus : BaseSkillEffect
 {
     struct StatusInfo
     {
-        public StatusEffect type;
+        public StatusTypes type;
         public int value;
     }
     List<StatusInfo> FindAllStatusEffects(Dictionary<string, int> skillData)
@@ -23,7 +23,7 @@ public class ApplyStatus : BaseSkillEffect
                     {
                         var newStatus = new StatusInfo
                         {
-                            type = StatusEffect.Burn,
+                            type = StatusTypes.Burn,
                             value = item.Value
                         };
 
@@ -34,7 +34,7 @@ public class ApplyStatus : BaseSkillEffect
                     {
                         var newStatus = new StatusInfo
                         {
-                            type = StatusEffect.Bleeding,
+                            type = StatusTypes.Bleeding,
                             value = item.Value
                         };
 
@@ -45,7 +45,7 @@ public class ApplyStatus : BaseSkillEffect
                     {
                         var newStatus = new StatusInfo
                         {
-                            type = StatusEffect.CarrionArmor,
+                            type = StatusTypes.CarrionArmor,
                             value = item.Value
                         };
 
@@ -56,7 +56,7 @@ public class ApplyStatus : BaseSkillEffect
                     {
                         var newStatus = new StatusInfo
                         {
-                            type = StatusEffect.Cooldown,
+                            type = StatusTypes.Cooldown,
                             value = item.Value
                         };
 
@@ -67,7 +67,7 @@ public class ApplyStatus : BaseSkillEffect
                     {
                         var newStatus = new StatusInfo
                         {
-                            type = StatusEffect.Usage_Cooldown,
+                            type = StatusTypes.Usage_Cooldown,
                             value = item.Value
                         };
 
@@ -78,7 +78,7 @@ public class ApplyStatus : BaseSkillEffect
                     {
                         var newStatus = new StatusInfo
                         {
-                            type = StatusEffect.Fear,
+                            type = StatusTypes.Fear,
                             value = item.Value
                         };
 
@@ -89,7 +89,7 @@ public class ApplyStatus : BaseSkillEffect
                     {
                         var newStatus = new StatusInfo
                         {
-                            type = StatusEffect.Freeze,
+                            type = StatusTypes.Freeze,
                             value = item.Value
                         };
 
@@ -100,7 +100,7 @@ public class ApplyStatus : BaseSkillEffect
                     {
                         var newStatus = new StatusInfo
                         {
-                            type = StatusEffect.Poison,
+                            type = StatusTypes.Poison,
                             value = item.Value
                         };
 
@@ -111,7 +111,7 @@ public class ApplyStatus : BaseSkillEffect
                     {
                         var newStatus = new StatusInfo
                         {
-                            type = StatusEffect.Stun,
+                            type = StatusTypes.Stun,
                             value = item.Value
                         };
 
