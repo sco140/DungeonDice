@@ -23,7 +23,9 @@ namespace GameUtility
         public const string SetUpDice = "SetUpDice";
         public const string LaunchDice = "LaunchDice";
         public const string BeforeDiceRoll = "BeforeDiceRoll";
+        public const string BeforeResourceDiceRoll = "BeforeResourceDiceRoll";
         public const string AfterDiceRoll = "AfterDiceRoll";
+        public const string AfterResourceDiceRoll = "AfterResourceDiceRoll";
         public const string EnableDiceLaunch = "EnableDiceLaunch";
         public const string DisableDiceLaunch = "DisableDiceLaunch";
     }

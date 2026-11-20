@@ -21,12 +21,12 @@ namespace GameUtility
         const string m_damageTargetTypeKey = "damageTargetType";
         const string m_damageTargetIdKey = "damageTargetId";
 
-        int GetDamageValue()
+        public int GetDamageValue()
         {
             return m_parameters[m_damageKey];
         }
 
-        GameObject GetDamageOwner()
+        public GameObject GetDamageOwner()
         {
             GameManager gameManager = GameManager.Instance;
             gameManager.TryGetUnit(
@@ -36,7 +36,7 @@ namespace GameUtility
             return damageOwner;
         }
 
-        GameObject GetDamageTarget()
+        public GameObject GetDamageTarget()
         {
             GameManager gameManager = GameManager.Instance;
             gameManager.TryGetUnit(
@@ -55,11 +55,11 @@ namespace GameUtility
         const string m_healingOwnerIdKey = "healingOwnerId";
         const string m_healingTargetTypeKey = "healingTargetType";
         const string m_healingTargetIdKey = "healingTargetId";
-        int GetHealingValue()
+        public int GetHealingValue()
         {
             return m_parameters[m_healingKey];
         }
-        GameObject GetHealingOwner()
+        public GameObject GetHealingOwner()
         {
             GameManager gameManager = GameManager.Instance;
             gameManager.TryGetUnit(
@@ -68,7 +68,7 @@ namespace GameUtility
                 out GameObject healingOwner);
             return healingOwner;
         }
-        GameObject GetHealingTarget()
+        public GameObject GetHealingTarget()
         {
             GameManager gameManager = GameManager.Instance;
             gameManager.TryGetUnit(
@@ -86,11 +86,11 @@ namespace GameUtility
         const string m_statusOwnerIdKey = "statusOwnerId";
         const string m_statusTargetTypeKey = "statusTargetType";
         const string m_statusTargetIdKey = "statusTargetId";
-        int GetStatusValue()
+        public int GetStatusValue()
         {
             return m_parameters[m_statusKey];
         }
-        GameObject GetStatusOwner()
+        public GameObject GetStatusOwner()
         {
             GameManager gameManager = GameManager.Instance;
             gameManager.TryGetUnit(
@@ -99,7 +99,7 @@ namespace GameUtility
                 out GameObject statusOwner);
             return statusOwner;
         }
-        GameObject GetStatusTarget()
+        public GameObject GetStatusTarget()
         {
             GameManager gameManager = GameManager.Instance;
             gameManager.TryGetUnit(
@@ -107,6 +107,31 @@ namespace GameUtility
                 m_parameters[m_statusTargetIdKey],
                 out GameObject statusTarget);
             return statusTarget;
+        }
+    }
+
+    public class DiceRolledEventMessage : EventMessage
+    {
+        const string m_diceFaceValueKey = "diceFaceValue";
+        const string m_diceTypeKey = "diceType";
+        const string m_diceOwnerTypeKey = "diceOwnerType";
+        const string m_diceOwnerIdKey = "diceOwnerId";
+        public ResourceDiceFaceValue GetDiceFaceValue()
+        {
+            return (ResourceDiceFaceValue)m_parameters[m_diceFaceValueKey];
+        }
+        public GameObject GetDiceOwner()
+        {
+            GameManager gameManager = GameManager.Instance;
+            gameManager.TryGetUnit(
+                m_parameters[m_diceOwnerTypeKey],
+                m_parameters[m_diceOwnerIdKey],
+                out GameObject diceOwner);
+            return diceOwner;
+        }
+        public DiceType GetDiceType()
+        {
+            return (DiceType)m_parameters[m_diceTypeKey];
         }
     }
 }

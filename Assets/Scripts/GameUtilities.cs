@@ -5,12 +5,19 @@ using UnityEngine;
 
 namespace GameUtility
 {
-    public enum DiceFaceValue
+    public enum DiceType
+    {
+        Burn,
+        Resource,
+        MAX
+    }
+    public enum ResourceDiceFaceValue
     {
         RED,
         BLUE,
         YELLOW,
         BLANK,
+        MAX
     }
 
     public enum ManaColor
@@ -50,28 +57,12 @@ namespace GameUtility
         UnitController target;
         Dictionary<string, int> effectParams;
     }
-    public enum StatusTypes
-    {
-        None = 0,
-        Armor = 1 << 0,
-        Burn = 1 << 1,
-        Bleeding = 1 << 2,
-        CarrionArmor = 1 << 3,
-        Cooldown = 1 << 4,
-        Usage_Cooldown = 1 << 5,
-        Fear = 1 << 6,
-        Freeze = 1 << 7,
-        Poison = 1 << 8,
-        Stun = 1 << 9,
-        MAX,
-    }
-
     [Serializable]
     public struct StatusPackage
     {
-        UnitController target;
-        StatusTypes statusEffect;
-        Dictionary<string, int> statusParams;
+        public GameObject target;
+        public StatusTypes statusEffect;
+        public Dictionary<string, int> statusParams;
     }
     public enum TriggerType
     {

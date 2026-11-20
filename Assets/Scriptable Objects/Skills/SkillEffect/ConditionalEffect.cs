@@ -94,6 +94,18 @@ public class ConditionalEffect : BaseSkillEffect
         m_conditionalEffects.Add(condition);
     }
 
+    public void AddConditionMetEffect(
+        BaseSkillEffect effect)
+    {
+        m_conditionMetEffect.Add(effect);
+    }
+
+    public void AddBaseEffect(
+        BaseSkillEffect effect)
+    {
+        m_baseEffect.Add(effect);
+    }
+
     public override void Execute(
         UnitController caster,
         UnitController target,

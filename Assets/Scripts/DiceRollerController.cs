@@ -17,8 +17,8 @@ public class DiceRollerController :
     Vector2 m_initialMousePosition;
     private void Awake()
     {
-        EventManager.Register("EnableDiceLaunch", new EventHandler<int>(EnableDiceLaunch));
-        EventManager.Register("DisableDiceLaunch", new EventHandler(DisableDiceLaunch));
+        EventManager.Register(EventNames.EnableDiceLaunch, new EventHandler<int>(EnableDiceLaunch));
+        EventManager.Register(EventNames.DisableDiceLaunch, new EventHandler(DisableDiceLaunch));
     }
     private void Start()
     {
@@ -30,7 +30,7 @@ public class DiceRollerController :
     }
     public void EnableDiceLaunch(int diceAmount)
     {
-        EventManager.TriggerEvent("SetUpDice", diceAmount);
+        EventManager.TriggerEvent(EventNames.SetUpDice, diceAmount);
         m_objDiceCameraPanel.SetActive(true);
         m_cBackgroundPanel.enabled = true;
     }
@@ -41,8 +41,8 @@ public class DiceRollerController :
     }
     private void OnDestroy()
     {
-        EventManager.Unregister<int>("EnableDiceLaunch", EnableDiceLaunch);
-        EventManager.Unregister("DisableDiceLaunch", DisableDiceLaunch);
+        EventManager.Unregister<int>(EventNames.EnableDiceLaunch, EnableDiceLaunch);
+        EventManager.Unregister(EventNames.DisableDiceLaunch, DisableDiceLaunch);
     }
     public void OnPointerDown(PointerEventData eventData)
     {
@@ -51,6 +51,6 @@ public class DiceRollerController :
     public void OnPointerUp(PointerEventData eventData)
     {
         var toEndPoint = eventData.position - m_initialMousePosition;
-        EventManager.TriggerEvent("LaunchDice", new Vector3(toEndPoint.x, 0f, toEndPoint.y));
+        EventManager.TriggerEvent(EventNames.LaunchDice, new Vector3(toEndPoint.x, 0f, toEndPoint.y));
     }
 }
