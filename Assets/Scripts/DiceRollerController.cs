@@ -17,7 +17,7 @@ public class DiceRollerController :
     Vector2 m_initialMousePosition;
     private void Awake()
     {
-        EventManager.Register(EventNames.EnableDiceLaunch, new EventHandler<int>(EnableDiceLaunch));
+        EventManager.Register(EventNames.EnableDiceLaunch, new EventHandler<DiceRollRequest>(EnableDiceLaunch));
         EventManager.Register(EventNames.DisableDiceLaunch, new EventHandler(DisableDiceLaunch));
     }
     private void Start()
@@ -28,9 +28,9 @@ public class DiceRollerController :
             enabled = false; // Disable the script to prevent further errors.
         }
     }
-    public void EnableDiceLaunch(int diceAmount)
+    public void EnableDiceLaunch(DiceRollRequest rollRequest)
     {
-        EventManager.TriggerEvent(EventNames.SetUpDice, diceAmount);
+        EventManager.TriggerEvent(EventNames.SetUpDice, rollRequest);
         m_objDiceCameraPanel.SetActive(true);
         m_cBackgroundPanel.enabled = true;
     }
@@ -41,7 +41,7 @@ public class DiceRollerController :
     }
     private void OnDestroy()
     {
-        EventManager.Unregister<int>(EventNames.EnableDiceLaunch, EnableDiceLaunch);
+        EventManager.Unregister<DiceRollRequest>(EventNames.EnableDiceLaunch, EnableDiceLaunch);
         EventManager.Unregister(EventNames.DisableDiceLaunch, DisableDiceLaunch);
     }
     public void OnPointerDown(PointerEventData eventData)

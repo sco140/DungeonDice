@@ -21,13 +21,45 @@ namespace GameUtility
         const string m_damageTargetTypeKey = "damageTargetType";
         const string m_damageTargetIdKey = "damageTargetId";
 
+        public GameObject Target { get; private set; }
+        public GameObject Owner { get; private set; }
+        public DamageType Type { get; set; }
+
+        public DamageEventMessage()
+        {
+        }
+
+        public DamageEventMessage(GameObject target, GameObject owner, int damage, DamageType damageType)
+        {
+            Target = target;
+            Owner = owner;
+            Type = damageType;
+            SetDamageValue(damage);
+        }
+
         public int GetDamageValue()
         {
-            return m_parameters[m_damageKey];
+            return m_parameters.ContainsKey(m_damageKey) ? m_parameters[m_damageKey] : 0;
+        }
+
+        public void SetDamageValue(int damage)
+        {
+            m_parameters[m_damageKey] = Mathf.Max(0, damage);
         }
 
         public GameObject GetDamageOwner()
         {
+            if (Owner != null)
+            {
+                return Owner;
+            }
+
+            if (!m_parameters.ContainsKey(m_damageOwnerTypeKey) ||
+                !m_parameters.ContainsKey(m_damageOwnerIdKey))
+            {
+                return null;
+            }
+
             GameManager gameManager = GameManager.Instance;
             gameManager.TryGetUnit(
                 m_parameters[m_damageOwnerTypeKey],
@@ -38,6 +70,17 @@ namespace GameUtility
 
         public GameObject GetDamageTarget()
         {
+            if (Target != null)
+            {
+                return Target;
+            }
+
+            if (!m_parameters.ContainsKey(m_damageTargetTypeKey) ||
+                !m_parameters.ContainsKey(m_damageTargetIdKey))
+            {
+                return null;
+            }
+
             GameManager gameManager = GameManager.Instance;
             gameManager.TryGetUnit(
                 m_parameters[m_damageTargetTypeKey],

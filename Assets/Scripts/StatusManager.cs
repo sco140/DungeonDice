@@ -35,6 +35,23 @@ namespace GameUtility
             m_target = null;
             m_stackCount = 0;
         }
+
+        public int StackCount => m_stackCount;
+
+        public bool IsTarget(GameObject target)
+        {
+            return m_target == target;
+        }
+
+        public void AddStacks(int stackCount)
+        {
+            m_stackCount += Mathf.Max(0, stackCount);
+        }
+
+        public void RemoveStack()
+        {
+            m_stackCount = Mathf.Max(0, m_stackCount - 1);
+        }
         public abstract void TriggerEffect(EventMessage eventMessage);
         protected abstract void RegisterEffect();
     }
@@ -48,25 +65,27 @@ namespace GameUtility
 
         public override void TriggerEffect(EventMessage eventMessage)
         {
-            DamageEventMessage damageEventMessage = eventMessage as DamageEventMessage;
-            if (damageEventMessage != null)
+            if (eventMessage is not DamageEventMessage damageEventMessage)
             {
-                // log error if damageEventMessage is null
-                Debug.LogError($"Invalid event message for armor effect");
+                Debug.LogError("Invalid event message for armor effect");
                 return;
             }
 
-            // check if the target of the damage event is the same as the target of the armor effect
             if (damageEventMessage.GetDamageTarget() != m_target)
             {
                 return;
             }
 
-            // Implementation for armor effect
-            // Reduce the incoming damage by the stack count of the armor effect.
-            // If the incoming damage is greater than the stack count, reduce the damage by the stack count and remove the armor effect.
-            // If the incoming damage is less than or equal to the stack count, reduce the damage to 0 and decrease the stack count by the incoming damage amount.
-            // If the stack count reaches 0, remove the armor effect.
+            int damage = damageEventMessage.GetDamageValue();
+            int absorbed = Mathf.Min(damage, m_stackCount);
+            damage -= absorbed;
+            m_stackCount -= absorbed;
+            damageEventMessage.SetDamageValue(damage);
+
+            if (m_stackCount <= 0)
+            {
+                RemoveEffect();
+            }
         }
         protected override void RegisterEffect()
         {
@@ -79,10 +98,14 @@ namespace GameUtility
         public override void RemoveEffect()
         {
             base.RemoveEffect();
-            // Implementation for unregistering armor effect
             EventManager.Unregister<EventMessage>(
                 EventNames.BeforeDamageApplied,
                 TriggerEffect);
+
+            if (StatusManager.Instance != null)
+            {
+                StatusManager.Instance.RemoveStatusEffect(StatusTypes.Armor, this);
+            }
         }
     }
     public class BurnStatusEffect : BaseStatusEffect
@@ -91,33 +114,31 @@ namespace GameUtility
         {
             ApplyEffect(target, stackCount);
         }
+
         public override void TriggerEffect(EventMessage eventMessage)
         {
-            if (m_stackCount <= 0)
+        }
+
+        protected override void RegisterEffect()
+        {
+        }
+
+        public void ApplyBurnDamage(int damage)
+        {
+            if (m_target == null || damage <= 0)
             {
-                RemoveEffect();
                 return;
             }
 
-            // Implementation for burn effect
-            // Trigger an additional roll of a burn damage dice based on the stack count of the burn effect.
-            // For example, if the stack count is 2, roll 2 burn damage dice and apply the total damage to the target.
-            // Decrease the stack count by 1 after each burn damage dice roll, and remove the burn effect when the stack count reaches 0.
+            if (m_target.TryGetComponent(out UnitController unit))
+            {
+                unit.TakeDamage(damage, DamageType.Burn, m_target);
+            }
         }
-        protected override void RegisterEffect()
-        {
-            // Implementation for registering burn effect
-            EventManager.Register(
-                EventNames.AfterDiceRoll,
-                new EventHandler<EventMessage>(TriggerEffect));
-        }
+
         public override void RemoveEffect()
         {
             base.RemoveEffect();
-            // Implementation for unregistering burn effect
-            EventManager.Unregister<EventMessage>(
-                EventNames.AfterDiceRoll,
-                TriggerEffect);
         }
     }
     public class StatusManager : MonoBehaviour
@@ -126,9 +147,105 @@ namespace GameUtility
 
         Dictionary<StatusTypes, List<BaseStatusEffect>> m_statusEffects = new();
 
+        private void Awake()
+        {
+            if (Instance != null && Instance != this)
+            {
+                Destroy(gameObject);
+                return;
+            }
+
+            Instance = this;
+            DontDestroyOnLoad(gameObject);
+        }
+
+        public int GetStackCount(StatusTypes effect, GameObject target)
+        {
+            if (target == null || !m_statusEffects.TryGetValue(effect, out var effects))
+            {
+                return 0;
+            }
+
+            int count = 0;
+            foreach (var statusEffect in effects)
+            {
+                if (statusEffect.IsTarget(target))
+                {
+                    count += statusEffect.StackCount;
+                }
+            }
+
+            return count;
+        }
+
+        public void ApplyBurnDamage(GameObject target, int damage)
+        {
+            if (target == null || !m_statusEffects.TryGetValue(StatusTypes.Burn, out var effects))
+            {
+                return;
+            }
+
+            foreach (var statusEffect in effects)
+            {
+                if (statusEffect is BurnStatusEffect burnEffect && statusEffect.IsTarget(target))
+                {
+                    burnEffect.ApplyBurnDamage(damage);
+                    return;
+                }
+            }
+        }
+
+        public void RemoveStatusEffect(StatusTypes effect, BaseStatusEffect statusEffect)
+        {
+            if (!m_statusEffects.TryGetValue(effect, out var effects))
+            {
+                return;
+            }
+
+            effects.Remove(statusEffect);
+            if (effects.Count == 0)
+            {
+                m_statusEffects.Remove(effect);
+            }
+        }
+
+        public bool RemoveStack(StatusTypes effect, GameObject target)
+        {
+            if (target == null || !m_statusEffects.TryGetValue(effect, out var effects))
+            {
+                return false;
+            }
+
+            for (int i = 0; i < effects.Count; i++)
+            {
+                var statusEffect = effects[i];
+                if (!statusEffect.IsTarget(target))
+                {
+                    continue;
+                }
+
+                statusEffect.RemoveStack();
+                if (statusEffect.StackCount == 0)
+                {
+                    statusEffect.RemoveEffect();
+                    effects.RemoveAt(i);
+                }
+
+                if (effects.Count == 0)
+                {
+                    m_statusEffects.Remove(effect);
+                }
+
+                return true;
+            }
+
+            return false;
+        }
+
         public void ApplyStatusEffect(StatusTypes effect, GameObject target, int stackCount)
         {
             BaseStatusEffect statusEffect = null;
+            bool existingStatusEffect = false;
 
             StatusPackage statusEvent = new()
             {
@@ -140,9 +257,48 @@ namespace GameUtility
             switch (effect)
             {
                 case StatusTypes.Armor:
-                    statusEffect = new ArmorStatusEffect(target, stackCount);
+                    {
+                        if (m_statusEffects.TryGetValue(effect, out var armorEffects))
+                        {
+                            foreach (var existingEffect in armorEffects)
+                            {
+                                if (existingEffect.IsTarget(target))
+                                {
+                                    existingEffect.AddStacks(stackCount);
+                                    statusEffect = existingEffect;
+                                    existingStatusEffect = true;
+                                    break;
+                                }
+                            }
+                        }
+
+                        if (!existingStatusEffect)
+                        {
+                            statusEffect = new ArmorStatusEffect(target, stackCount);
+                        }
+                    }
                     break;
                 case StatusTypes.Burn:
+                    {
+                        if (m_statusEffects.TryGetValue(effect, out var burnEffects))
+                        {
+                            foreach (var existingEffect in burnEffects)
+                            {
+                                if (existingEffect.IsTarget(target))
+                                {
+                                    existingEffect.AddStacks(stackCount);
+                                    statusEffect = existingEffect;
+                                    existingStatusEffect = true;
+                                    break;
+                                }
+                            }
+                        }
+
+                        if (!existingStatusEffect)
+                        {
+                            statusEffect = new BurnStatusEffect(target, stackCount);
+                        }
+                    }
                     break;
                 case StatusTypes.Bleeding:
                     break;
@@ -173,12 +329,15 @@ namespace GameUtility
                     EventNames.BeforeStatusApplied,
                     statusEvent);
 
-                if (!m_statusEffects.ContainsKey(effect))
+                if (!existingStatusEffect)
                 {
-                    m_statusEffects.Add(effect, new List<BaseStatusEffect>());
-                }
+                    if (!m_statusEffects.ContainsKey(effect))
+                    {
+                        m_statusEffects.Add(effect, new List<BaseStatusEffect>());
+                    }
 
-                m_statusEffects[effect].Add(statusEffect);
+                    m_statusEffects[effect].Add(statusEffect);
+                }
 
                 EventManager.TriggerEvent(
                     EventNames.AfterStatusApplied,

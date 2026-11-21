@@ -1,5 +1,6 @@
 using GameUtility;
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 public class Event_ResourceUpdate
@@ -20,8 +21,6 @@ public class PlayerTeamManager : MonoBehaviour
     private int m_blue = 0;
     [SerializeField]
     private int m_yellow = 0;
-    [SerializeField]
-    private int m_diceCount = 0;
     /// <summary>
     /// TODO: Consider creating a class to control the skill menu and its interactions with the player unit controllers,
     ///       instead of having the PlayerTeamManager directly manage it.
@@ -34,9 +33,21 @@ public class PlayerTeamManager : MonoBehaviour
     /// @region Getters and Setters
 
     /// <summary>
-    /// Gets or sets the number of dice available for the player team.
+    /// Gets the characters assigned to the player's unit controllers.
     /// </summary>
-    public static int DiceCount { get => Instance.m_diceCount; set => Instance.m_diceCount = value; }
+    public static IReadOnlyList<BaseCharacters> GetTeamCharacters()
+    {
+        var characters = new List<BaseCharacters>();
+        foreach (var controller in Instance.m_PlayerUnitController)
+        {
+            if (controller != null)
+            {
+                characters.Add(controller.Character);
+            }
+        }
+
+        return characters;
+    }
     /// <summary>
     /// Returns the current skill resources as a tuple of (red, blue, yellow).
     /// </summary>

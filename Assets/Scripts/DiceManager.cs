@@ -2,6 +2,27 @@ using GameUtility;
 using System.Collections.Generic;
 using UnityEngine;
 
+public sealed class DiceRollEntry
+{
+    public BaseDice Dice { get; }
+    public UnitController Owner { get; }
+
+    public DiceRollEntry(BaseDice dice, UnitController owner)
+    {
+        Dice = dice;
+        Owner = owner;
+    }
+}
+
+public sealed class DiceRollRequest
+{
+    public IReadOnlyList<DiceRollEntry> DiceEntries { get; }
+
+    public DiceRollRequest(IReadOnlyList<DiceRollEntry> diceEntries)
+    {
+        DiceEntries = diceEntries;
+    }
+}
 
 public class DiceManager : MonoBehaviour
 {
@@ -15,7 +36,10 @@ public class DiceManager : MonoBehaviour
     /// <summary>
     /// A list to keep track of the retrieved resources from the dice rolls.
     /// </summary>
-    private List<BaseDice.ResourceFace> m_lstRetrievedResource = new List<BaseDice.ResourceFace>();
+    private List<BaseDice.DieFace<ResourceFaceResult>> m_lstRetrievedResource = new List<BaseDice.DieFace<ResourceFaceResult>>();
+    private readonly List<(UnitController owner, BaseDice.DieFace<BurnDamage> face)> m_lstRetrievedBurn =
+        new List<(UnitController owner, BaseDice.DieFace<BurnDamage> face)>();
+    private int m_settledDiceCount;
     // The diePrefab should be assigned in the Unity Inspector.
     // This is the prefab that will be instantiated when spawning dice.
     [SerializeField]
@@ -31,11 +55,12 @@ public class DiceManager : MonoBehaviour
 
     // A list to keep track of the spawned dice.
     private List<GameObject> m_spawnedDiceList = new List<GameObject>();
+    private int m_activeDiceCount;
     // A flag to indicate whether the dice are currently idle.
     private bool m_isIdle = true;
     private void OnDestroy()
     {
-        EventManager.Unregister<int>("SetUpDice", SetUpDice);
+        EventManager.Unregister<DiceRollRequest>(EventNames.SetUpDice, SetUpDice);
         EventManager.Unregister<Vector3>("LaunchDice", LaunchDice);
     }
     private void Awake()
@@ -66,7 +91,7 @@ public class DiceManager : MonoBehaviour
         }
 
         DontDestroyOnLoad(gameObject);
-        EventManager.Register("SetUpDice", new EventHandler<int>(SetUpDice));
+        EventManager.Register(EventNames.SetUpDice, new EventHandler<DiceRollRequest>(SetUpDice));
         EventManager.Register("LaunchDice", new EventHandler<Vector3>(LaunchDice));
     }
 
@@ -93,60 +118,58 @@ public class DiceManager : MonoBehaviour
         }
     }
 
-    public static void SetUpDice(int diceCount)
+    public static void SetUpDice(DiceRollRequest rollRequest)
     {
-        // Spawn the dice in a line with some padding between them.
-        var currentPosition = Instance.diceSpawnPoint.transform.position;
-        // Adjust the starting position to center the dice based on the count and padding.
-        currentPosition.x -= (diceCount - 1) / 2.0f * Instance.m_spawnPadding;
+        if (rollRequest == null || rollRequest.DiceEntries == null || rollRequest.DiceEntries.Count == 0)
+        {
+            Debug.LogError("Dice setup requires at least one die.");
+            return;
+        }
 
         var diceList = Instance.m_spawnedDiceList;
+        var diceCount = rollRequest.DiceEntries.Count;
+        Instance.m_activeDiceCount = diceCount;
+        Instance.m_lstRetrievedResource.Clear();
+        Instance.m_lstRetrievedBurn.Clear();
+        Instance.m_settledDiceCount = 0;
+        Instance.m_isIdle = true;
 
-        // Loop through the dice and set their positions
-        // based on the calculated starting position and padding.
-        for (int i = 0, currentCount = diceList.Count; i < currentCount; i++)
-        {
-            diceList[i].transform.position = currentPosition;
-            // Updating padding for next dice.
-            currentPosition.x += Instance.m_spawnPadding;
-            // Ensure the die is active in case it was previously disabled.
-            diceList[i].SetActive(true);
-        }
+        var currentPosition = Instance.diceSpawnPoint.transform.position;
+        currentPosition.x -= (diceCount - 1) / 2.0f * Instance.m_spawnPadding;
 
-        if (diceList.Count < diceCount)
+        for (int i = 0; i < diceCount; i++)
         {
-            // If the current number of spawned dice is less than the requested count, spawn new dice.
-            for (int i = diceList.Count; i < diceCount; i++)
+            GameObject die;
+            if (i < diceList.Count)
             {
-                // Create a new die
-                var newDice = Instantiate(
-                   Instance.diePrefab,
-                   currentPosition,
-                   Quaternion.identity,
-                   Instance.diceSpawnPoint.transform);
-                // Update dice name
-                newDice.name = $"Dice_{i}";
-                diceList.Add(newDice);
-                // Update padding for next dice.
-                currentPosition.x += Instance.m_spawnPadding;
+                die = diceList[i];
+                die.transform.position = currentPosition;
+                die.SetActive(true);
             }
-        }
-        else if (diceList.Count > diceCount)
-        {
-            // disable extra dice if the count is less than the current list.
-            for (int i = diceCount, count = diceList.Count; i < count; ++i)
+            else
             {
-                diceList[i].SetActive(false);
+                die = Instantiate(
+                    Instance.diePrefab,
+                    currentPosition,
+                    Quaternion.identity,
+                    Instance.diceSpawnPoint.transform);
+                die.name = $"Dice_{i}";
+                diceList.Add(die);
             }
-        }
 
-        // Reset the idle state
-        foreach (var die in diceList)
-        {
+            if (!die.TryGetComponent(out DiceHandler handler))
+            {
+                Debug.LogError($"Die prefab [ {die.name} ] does not have a DiceHandler component.");
+            }
+            else
+            {
+                var entry = rollRequest.DiceEntries[i];
+                handler.SetDiceInfo(entry.Dice, entry.Owner);
+            }
+
             var dieRigidBody = die.GetComponent<Rigidbody>();
             if (dieRigidBody)
             {
-                // Disable gravity and apply a random torque to the die to make it spin in the air.
                 dieRigidBody.useGravity = false;
                 dieRigidBody.angularVelocity = Random.insideUnitSphere * Instance.m_idleTorqueStrength;
             }
@@ -154,6 +177,13 @@ public class DiceManager : MonoBehaviour
             {
                 Debug.LogWarning($"Die prefab [ {die.name} ] does not have a Rigidbody component.");
             }
+
+            currentPosition.x += Instance.m_spawnPadding;
+        }
+
+        for (int i = diceCount; i < diceList.Count; i++)
+        {
+            diceList[i].SetActive(false);
         }
     }
 
@@ -163,9 +193,9 @@ public class DiceManager : MonoBehaviour
     /// <param name="toVector">Represents the direction and magnitude of the launch</param>
     public static void LaunchDice(Vector3 toVector)
     {
-        if (Instance.m_spawnedDiceList.Count == 0)
+        if (Instance.m_activeDiceCount == 0)
         {
-            Debug.LogWarning("No dice have been spawned to launch.");
+            Debug.LogWarning("No dice have been set up to launch.");
             return;
         }
 
@@ -174,6 +204,8 @@ public class DiceManager : MonoBehaviour
             Debug.LogWarning("Dice have been launched already.");
             return;
         }
+
+        EventManager.TriggerEvent(EventNames.BeforeDiceRoll);
 
         var direction = toVector.normalized + (Vector3.down * Instance.m_downwardForce);
         var force = Mathf.Clamp(toVector.magnitude, Instance.m_minForce, Instance.m_maxForce);
@@ -186,8 +218,9 @@ public class DiceManager : MonoBehaviour
 
         // Stop applying continuous torque.
         Instance.m_isIdle = false;
-        foreach (var die in Instance.m_spawnedDiceList)
+        for (int i = 0; i < Instance.m_activeDiceCount; i++)
         {
+            var die = Instance.m_spawnedDiceList[i];
             if (!die.TryGetComponent(out DiceHandler handler))
             {
                 Debug.LogWarning($"Die prefab [ {die.name} ] does not have a DiceHandler component.");
@@ -202,15 +235,20 @@ public class DiceManager : MonoBehaviour
         }
     }
 
-    public static void ProcessDiceValue(string dieName, BaseDice.ResourceFace result)
+    private static void CompleteSettledDie()
     {
-        Debug.Log($"Dice result for {dieName}: {result.m_diceFaceIndex}");
-
-        Instance.m_lstRetrievedResource.Add(result);
-        if (Instance.m_lstRetrievedResource.Count != Instance.m_spawnedDiceList.Count)
+        Instance.m_settledDiceCount++;
+        if (Instance.m_settledDiceCount != Instance.m_activeDiceCount)
         {
             return;
         }
+
+        CompleteDiceRoll();
+    }
+
+    private static void CompleteDiceRoll()
+    {
+        // Processed resource faces are accumulated into the team resource totals.
 
         int red = 0;
         int blue = 0;
@@ -221,30 +259,86 @@ public class DiceManager : MonoBehaviour
         {
             switch (face.m_type)
             {
-                case DiceResultType.Red:
+                case ResourceFaceResult.Red:
                     red += face.amount;
                     break;
-                case DiceResultType.Blue:
+                case ResourceFaceResult.Blue:
                     blue += face.amount;
                     break;
-                case DiceResultType.Yellow:
+                case ResourceFaceResult.Yellow:
                     yellow += face.amount;
                     break;
             }
         }
 
-        Debug.Log($"Dice result Red:{red} | Yellow:{yellow} | Blue:{blue}");
+        if (Instance.m_lstRetrievedResource.Count > 0)
+        {
+            Debug.Log($"Dice result Red:{red} | Yellow:{yellow} | Blue:{blue}");
 
-        EventManager.TriggerEvent("UpdateResources", new Event_ResourceUpdate
+            EventManager.TriggerEvent("UpdateResources", new Event_ResourceUpdate
         {
             red = red,
             blue = blue,
-            yellow = yellow
-        });
+                            yellow = yellow
+                        });
 
-        EventManager.TriggerEvent("DisableDiceLaunch");
+                        EventManager.TriggerEvent(EventNames.AfterResourceDiceRoll);
+                    }
 
-        // Removing all result values after processing to prepare for the next dice roll.
-        Instance.m_lstRetrievedResource.Clear();
-    }
-}
+                    foreach (var burnResult in Instance.m_lstRetrievedBurn)
+                    {
+                        if (burnResult.owner == null)
+                        {
+                            Debug.LogError("BurnDice result has no owning character.");
+                            continue;
+                        }
+
+                        switch (burnResult.face.m_type)
+                        {
+                            case BurnDamage.Flame:
+                                if (StatusManager.Instance != null)
+                                {
+                                    StatusManager.Instance.ApplyBurnDamage(burnResult.owner.gameObject, burnResult.face.amount);
+                                }
+                                break;
+                            case BurnDamage.Extinguish:
+                                if (StatusManager.Instance != null)
+                                {
+                                    StatusManager.Instance.RemoveStack(StatusTypes.Burn, burnResult.owner.gameObject);
+                                }
+                                break;
+                            case BurnDamage.Nothing:
+                                break;
+                        }
+                    }
+
+                    EventManager.TriggerEvent(EventNames.AfterDiceRoll);
+                    EventManager.TriggerEvent("DisableDiceLaunch");
+
+                    Instance.m_lstRetrievedResource.Clear();
+                    Instance.m_lstRetrievedBurn.Clear();
+                    Instance.m_settledDiceCount = 0;
+                    Instance.m_isIdle = true;
+                    Physics.gravity = new Vector3(0, -9.81f, 0);
+                }
+
+                public static void ProcessDiceValue(
+                    string dieName,
+                    UnitController owner,
+                    BaseDice.DieFace<ResourceFaceResult> result)
+                {
+                    Debug.Log($"Resource dice result for {dieName}, owner {owner?.name}: face {result.m_diceFaceIndex}");
+                    Instance.m_lstRetrievedResource.Add(result);
+                    CompleteSettledDie();
+                }
+
+                public static void ProcessDiceValue(
+                    string dieName,
+                    UnitController owner,
+                    BaseDice.DieFace<BurnDamage> result)
+                {
+                    Debug.Log($"Burn dice result for {dieName}, owner {owner?.name}: {result.m_type}, amount {result.amount}");
+                    Instance.m_lstRetrievedBurn.Add((owner, result));
+                    CompleteSettledDie();
+                }
+            }

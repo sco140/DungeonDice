@@ -34,8 +34,20 @@ public class DiceHandler : MonoBehaviour
     };
     private Rigidbody m_cmpRigidBody;
     
-    [SerializeField]
     private BaseDice m_diceFaceInfo;
+    private UnitController m_owner;
+
+    public void SetDiceInfo(BaseDice diceInfo, UnitController owner)
+    {
+        if (diceInfo == null)
+        {
+            Debug.LogError($"DiceHandler on {name} received a null dice.");
+            return;
+        }
+
+        m_diceFaceInfo = diceInfo;
+        m_owner = owner;
+    }
 
     public void Awake()
     {
@@ -101,7 +113,15 @@ public class DiceHandler : MonoBehaviour
 
         // Now read the face
         int result = GetFaceUp();
-        var faceInfo = m_diceFaceInfo.m_lstDieFaces[result-1];
-        DiceManager.ProcessDiceValue(name, faceInfo);
+        if (m_diceFaceInfo is ResourceDice resourceDice)
+        {
+            var faceInfo = resourceDice.m_lstDieFaces[result - 1];
+            DiceManager.ProcessDiceValue(name, m_owner, faceInfo);
+        }
+        else if (m_diceFaceInfo is BurnDice burnDice)
+        {
+            var faceInfo = burnDice.m_lstDieFaces[result - 1];
+            DiceManager.ProcessDiceValue(name, m_owner, faceInfo);
+        }
     }
 }

@@ -1,4 +1,5 @@
 using GameUtility;
+using System.Collections.Generic;
 using UnityEngine;
 public enum UnitType
 {
@@ -21,8 +22,7 @@ public class GameManager : MonoBehaviour
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
     {
-        // Turn on the dice roller UI when the game starts.
-        EventManager.TriggerEvent("EnableDiceLaunch", PlayerTeamManager.DiceCount);
+        StartTurn();
     }
 
     public void EndTurn()
@@ -33,8 +33,54 @@ public class GameManager : MonoBehaviour
 
     public void StartTurn()
     {
-        // Turn on the dice roller UI when the turn starts.
-        EventManager.TriggerEvent("EnableDiceLaunch", PlayerTeamManager.DiceCount);
+        var diceEntries = new List<DiceRollEntry>();
+        foreach (var unit in PlayerTeamManager.GetTeam())
+        {
+            if (unit == null)
+            {
+                Debug.LogError("The player team contains an unassigned unit controller.");
+                continue;
+            }
+
+            var character = unit.Character;
+            if (character == null)
+            {
+                Debug.LogError($"Unit {unit.name} has no BaseCharacters asset assigned.");
+                continue;
+            }
+
+            if (character.m_lstDiceValues == null)
+            {
+                Debug.LogError($"Character {character.name} has no dice list assigned.");
+                continue;
+            }
+
+            foreach (var dice in character.m_lstDiceValues)
+            {
+                if (dice is ResourceDice resourceDie)
+                {
+                    diceEntries.Add(new DiceRollEntry(resourceDie, unit));
+                }
+            }
+
+            if (StatusManager.Instance != null)
+            {
+                int burnStacks = StatusManager.Instance.GetStackCount(StatusTypes.Burn, unit.gameObject);
+                for (int i = 0; i < burnStacks; i++)
+                {
+                    diceEntries.Add(new DiceRollEntry(ScriptableObject.CreateInstance<BurnDice>(), unit));
+                }
+            }
+        }
+
+        if (diceEntries.Count == 0)
+        {
+            Debug.LogError("The player team has no resource or burn dice to roll.");
+            return;
+        }
+
+        var rollRequest = new DiceRollRequest(diceEntries);
+        EventManager.TriggerEvent(EventNames.EnableDiceLaunch, rollRequest);
     }
 
     public bool TryGetUnit(int unitType, int unitId, out GameObject unit)

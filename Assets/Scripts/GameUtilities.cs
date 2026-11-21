@@ -11,6 +11,13 @@ namespace GameUtility
         Resource,
         MAX
     }
+
+    public enum DamageType
+    {
+        Normal,
+        Burn,
+        Bleeding
+    }
     public enum ResourceDiceFaceValue
     {
         RED,
