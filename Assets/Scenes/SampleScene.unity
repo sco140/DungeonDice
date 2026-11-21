@@ -1719,6 +1719,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 57f186e435f16d747b4612b4f09f9527, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerUnitController
+  m_baseCharacter: {fileID: 0}
   m_objSkillMenuPosition: {fileID: 1522124454}
   m_objCharacter: {fileID: 181031640}
 --- !u!65 &533374766
@@ -1843,6 +1844,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 57f186e435f16d747b4612b4f09f9527, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerUnitController
+  m_baseCharacter: {fileID: 0}
   m_objSkillMenuPosition: {fileID: 39624271}
   m_objCharacter: {fileID: 773779681}
 --- !u!65 &591223380
@@ -3014,7 +3016,6 @@ MonoBehaviour:
   m_red: 0
   m_blue: 0
   m_yellow: 0
-  m_diceCount: 6
   m_UiSkillMenu: {fileID: 1585037039}
   m_PlayerUnitController:
   - {fileID: 533374765}
@@ -3210,6 +3211,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 57f186e435f16d747b4612b4f09f9527, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerUnitController
+  m_baseCharacter: {fileID: 0}
   m_objSkillMenuPosition: {fileID: 203133574}
   m_objCharacter: {fileID: 1347367484}
 --- !u!65 &1281046990
