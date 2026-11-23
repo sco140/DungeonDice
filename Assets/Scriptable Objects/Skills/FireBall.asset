@@ -17,9 +17,14 @@ MonoBehaviour:
   m_skillData:
     keys:
     - damage
-    - Burn
+    - burn
     - cooldown
     values: 030000000200000001000000
   m_skillEffectList:
   - {fileID: 11400000, guid: a1f81317bda61324abbb1b2faa384616, type: 2}
   - {fileID: 11400000, guid: 88c62d45b9e912543aaf6240031ac070, type: 2}
+  m_manaCost:
+    m_generic: 0
+    m_red: 0
+    m_yellow: 0
+    m_blue: 2

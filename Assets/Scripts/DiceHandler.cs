@@ -33,7 +33,7 @@ public class DiceHandler : MonoBehaviour
             localNormal = Vector3.back }
     };
     private Rigidbody m_cmpRigidBody;
-    
+
     private BaseDice m_diceFaceInfo;
     private UnitController m_owner;
 
@@ -111,17 +111,26 @@ public class DiceHandler : MonoBehaviour
             yield return new WaitForFixedUpdate();
         }
 
-        // Now read the face
         int result = GetFaceUp();
-        if (m_diceFaceInfo is ResourceDice resourceDice)
+        switch (m_diceFaceInfo)
         {
-            var faceInfo = resourceDice.m_lstDieFaces[result - 1];
-            DiceManager.ProcessDiceValue(name, m_owner, faceInfo);
-        }
-        else if (m_diceFaceInfo is BurnDice burnDice)
-        {
-            var faceInfo = burnDice.m_lstDieFaces[result - 1];
-            DiceManager.ProcessDiceValue(name, m_owner, faceInfo);
+            case ResourceDice resourceDice:
+                {
+                    Debug.Log($"Resource Dice rolled: {GetFaceUp()}");
+                    var faceInfo = resourceDice.m_lstDieFaces[result - 1];
+                    DiceManager.ProcessDiceValue(name, m_owner, faceInfo);
+                }
+                break;
+            case BurnDice burnDice:
+                {
+                    Debug.Log($"Burn Dice rolled: {GetFaceUp()}");
+                    var faceInfo = burnDice.m_lstDieFaces[result - 1];
+                    DiceManager.ProcessDiceValue(name, m_owner, faceInfo);
+                }
+                break;
+            default:
+                Debug.LogError("Unknown dice type.");
+                break;
         }
     }
 }

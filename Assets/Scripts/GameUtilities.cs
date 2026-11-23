@@ -38,22 +38,78 @@ namespace GameUtility
     [Serializable]
     public struct Mana
     {
-        private Dictionary<ManaColor, uint> m_dicMana;
+        public uint m_generic;
+        public uint m_red;
+        public uint m_yellow;
+        public uint m_blue;
+    }
+    [CustomPropertyDrawer(typeof(Mana))]
+    public class ManaPropertyDrawer : PropertyDrawer
+    {
+        const float labelWidth = 15f;
+        const float fieldWidth = 35f;
+        const float spacing = 5f;
 
-        public Mana(Dictionary<ManaColor, uint> dicMana)
+        public override float GetPropertyHeight(
+            SerializedProperty property,
+            GUIContent label)
         {
-            m_dicMana = dicMana;
+            return EditorGUIUtility.singleLineHeight;
         }
 
-        public Mana(uint generic, uint red, uint yellow, uint blue)
+        public override void OnGUI(
+            Rect position,
+            SerializedProperty property,
+            GUIContent label)
         {
-            m_dicMana = new Dictionary<ManaColor, uint>
-            {
-                { ManaColor.Generic, blue },
-                { ManaColor.Red, red },
-                { ManaColor.Yellow, yellow },
-                { ManaColor.Blue, blue },
-            };
+            //var generic = property.FindPropertyRelative("m_generic");
+            var red = property.FindPropertyRelative("m_red");
+            var yellow = property.FindPropertyRelative("m_yellow");
+            var blue = property.FindPropertyRelative("m_blue");
+
+            position = EditorGUI.PrefixLabel(position, label);
+
+            //DrawManaField(ref position, generic, "G",
+            //    labelWidth, fieldWidth, spacing);
+
+            DrawManaField(ref position, red, "R",
+                labelWidth, fieldWidth, spacing);
+
+            DrawManaField(ref position, yellow, "Y",
+                labelWidth, fieldWidth, spacing);
+
+            DrawManaField(ref position, blue, "B",
+                labelWidth, fieldWidth, spacing);
+        }
+
+        private void DrawManaField(
+            ref Rect position,
+            SerializedProperty property,
+            string label,
+            float labelWidth,
+            float fieldWidth,
+            float spacing)
+        {
+            EditorGUI.LabelField(
+                new Rect(
+                    position.x,
+                    position.y,
+                    labelWidth,
+                    position.height),
+                label);
+
+            position.x += labelWidth;
+
+            EditorGUI.PropertyField(
+                new Rect(
+                    position.x,
+                    position.y,
+                    fieldWidth,
+                    position.height),
+                property,
+                GUIContent.none);
+
+            position.x += fieldWidth + spacing;
         }
     }
 
