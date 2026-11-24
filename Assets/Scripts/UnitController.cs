@@ -8,10 +8,14 @@ public class UnitController : MonoBehaviour, IPointerClickHandler
     [SerializeField]
     private BaseCharacters m_baseCharacter;
 
+    private BaseSkill[] m_lstSkills;
     private int m_health;
 
+    // Getters
     public BaseCharacters Character => m_baseCharacter;
     public int Health => m_health;
+
+    public BaseSkill[] LstSkills { get => m_lstSkills; private set => m_lstSkills = value; }
 
     private void Awake()
     {
@@ -23,6 +27,7 @@ public class UnitController : MonoBehaviour, IPointerClickHandler
         }
 
         m_health = (int)m_baseCharacter.m_nHealth;
+        m_lstSkills = m_baseCharacter.m_lstSkills;
     }
 
     public void TakeDamage(int damage)

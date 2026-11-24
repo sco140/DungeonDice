@@ -12,9 +12,7 @@ public abstract class BaseCharacters : ScriptableObject
 
 	public List<BaseDice> m_lstDiceValues = new List<BaseDice>();
 
-	// TODO: Create a class to handle skills and add it here.
     public BaseSkill[] m_lstSkills = new BaseSkill[4];
-    // TODO: Create a way to handle passive skills and add it here.
     /// <summary>
     /// @Key - The Event name that will be used to trigger the skill.
     /// </summary>
@@ -25,6 +23,5 @@ public abstract class BaseCharacters : ScriptableObject
 		{
 			m_nHealth = 100;
 		}
-
 	}
 }
