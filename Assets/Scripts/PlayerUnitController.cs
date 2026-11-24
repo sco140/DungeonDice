@@ -15,8 +15,6 @@ public class PlayerUnitController : UnitController
         {
             return;
         }
-
-        skillMenu.SetActive(true);
-        skillMenu.transform.position = m_objSkillMenuPosition.transform.position;
+        PlayerTeamManager.MoveSkillMenu(this);
     }
 }

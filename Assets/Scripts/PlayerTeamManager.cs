@@ -114,8 +114,14 @@ public class PlayerTeamManager : MonoBehaviour
         EventManager.TriggerEvent("AfterResourceUpdate", eventData);
     }
 
-    internal bool TryGetUnit(int unitId, out GameObject unit)
+    public bool TryGetUnit(int unitId, out GameObject unit)
     {
         throw new NotImplementedException();
+    }
+
+    public static void MoveSkillMenu(PlayerUnitController playerUnitController)
+    {
+        Instance.m_UiSkillMenu.SetActive(true);
+
     }
 }
