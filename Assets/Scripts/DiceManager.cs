@@ -92,7 +92,7 @@ public class DiceManager : MonoBehaviour
 
         DontDestroyOnLoad(gameObject);
         EventManager.Register(EventNames.SetUpDice, new EventHandler<DiceRollRequest>(SetUpDice));
-        EventManager.Register("LaunchDice", new EventHandler<Vector3>(LaunchDice));
+        EventManager.Register(EventNames.LaunchDice, new EventHandler<Vector3>(LaunchDice));
     }
 
     // Update is called once per frame
@@ -275,70 +275,70 @@ public class DiceManager : MonoBehaviour
         {
             Debug.Log($"Dice result Red:{red} | Yellow:{yellow} | Blue:{blue}");
 
-            EventManager.TriggerEvent("UpdateResources", new Event_ResourceUpdate
+            EventManager.TriggerEvent(EventNames.ResourceUIUpdate, new Event_ResourceUpdate
+            {
+                red = red,
+                blue = blue,
+                yellow = yellow
+            });
+
+            EventManager.TriggerEvent(EventNames.AfterResourceDiceRoll);
+        }
+
+        foreach (var burnResult in Instance.m_lstRetrievedBurn)
         {
-            red = red,
-            blue = blue,
-                            yellow = yellow
-                        });
-
-                        EventManager.TriggerEvent(EventNames.AfterResourceDiceRoll);
-                    }
-
-                    foreach (var burnResult in Instance.m_lstRetrievedBurn)
-                    {
-                        if (burnResult.owner == null)
-                        {
-                            Debug.LogError("BurnDice result has no owning character.");
-                            continue;
-                        }
-
-                        switch (burnResult.face.m_type)
-                        {
-                            case BurnDamage.Flame:
-                                if (StatusManager.Instance != null)
-                                {
-                                    StatusManager.Instance.ApplyBurnDamage(burnResult.owner.gameObject, burnResult.face.amount);
-                                }
-                                break;
-                            case BurnDamage.Extinguish:
-                                if (StatusManager.Instance != null)
-                                {
-                                    StatusManager.Instance.RemoveStack(StatusTypes.Burn, burnResult.owner.gameObject);
-                                }
-                                break;
-                            case BurnDamage.Nothing:
-                                break;
-                        }
-                    }
-
-                    EventManager.TriggerEvent(EventNames.AfterDiceRoll);
-                    EventManager.TriggerEvent("DisableDiceLaunch");
-
-                    Instance.m_lstRetrievedResource.Clear();
-                    Instance.m_lstRetrievedBurn.Clear();
-                    Instance.m_settledDiceCount = 0;
-                    Instance.m_isIdle = true;
-                    Physics.gravity = new Vector3(0, -9.81f, 0);
-                }
-
-                public static void ProcessDiceValue(
-                    string dieName,
-                    UnitController owner,
-                    BaseDice.DieFace<ResourceFaceResult> result)
-                {
-                    Debug.Log($"Resource dice result for {dieName}, owner {owner?.name}: face {result.m_diceFaceIndex}");
-                    Instance.m_lstRetrievedResource.Add(result);
-                    CompleteSettledDie();
-                }
-
-                public static void ProcessDiceValue(
-                    string dieName,
-                    UnitController owner,
-                    BaseDice.DieFace<BurnDamage> result)
-                {
-                    Debug.Log($"Burn dice result for {dieName}, owner {owner?.name}: {result.m_type}, amount {result.amount}");
-                    Instance.m_lstRetrievedBurn.Add((owner, result));
-                    CompleteSettledDie();
-                }
+            if (burnResult.owner == null)
+            {
+                Debug.LogError("BurnDice result has no owning character.");
+                continue;
             }
+
+            switch (burnResult.face.m_type)
+            {
+                case BurnDamage.Flame:
+                    if (StatusManager.Instance != null)
+                    {
+                        StatusManager.Instance.ApplyBurnDamage(burnResult.owner.gameObject, burnResult.face.amount);
+                    }
+                    break;
+                case BurnDamage.Extinguish:
+                    if (StatusManager.Instance != null)
+                    {
+                        StatusManager.Instance.RemoveStack(StatusTypes.Burn, burnResult.owner.gameObject);
+                    }
+                    break;
+                case BurnDamage.Nothing:
+                    break;
+            }
+        }
+
+        EventManager.TriggerEvent(EventNames.AfterDiceRoll);
+        EventManager.TriggerEvent("DisableDiceLaunch");
+
+        Instance.m_lstRetrievedResource.Clear();
+        Instance.m_lstRetrievedBurn.Clear();
+        Instance.m_settledDiceCount = 0;
+        Instance.m_isIdle = true;
+        Physics.gravity = new Vector3(0, -9.81f, 0);
+    }
+
+    public static void ProcessDiceValue(
+        string dieName,
+        UnitController owner,
+        BaseDice.DieFace<ResourceFaceResult> result)
+    {
+        Debug.Log($"Resource dice result for {dieName}, owner {owner?.name}: face {result.m_diceFaceIndex}");
+        Instance.m_lstRetrievedResource.Add(result);
+        CompleteSettledDie();
+    }
+
+    public static void ProcessDiceValue(
+        string dieName,
+        UnitController owner,
+        BaseDice.DieFace<BurnDamage> result)
+    {
+        Debug.Log($"Burn dice result for {dieName}, owner {owner?.name}: {result.m_type}, amount {result.amount}");
+        Instance.m_lstRetrievedBurn.Add((owner, result));
+        CompleteSettledDie();
+    }
+}

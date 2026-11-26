@@ -1,10 +1,12 @@
 using GameUtility;
 using System.Collections.Generic;
 using UnityEngine;
+
 public enum UnitType
 {
     PLAYER = 0,
-    ENEMY = 1
+    ENEMY = 1,
+    MAX
 }
 public class GameManager : MonoBehaviour
 {
@@ -83,10 +85,10 @@ public class GameManager : MonoBehaviour
         EventManager.TriggerEvent(EventNames.EnableDiceLaunch, rollRequest);
     }
 
-    public bool TryGetUnit(int unitType, int unitId, out GameObject unit)
+    public bool TryGetUnit(UnitType unitType, int unitId, out GameObject unit)
     {
         unit = null;
-        switch ((UnitType)unitType)
+        switch (unitType)
         {
             case UnitType.PLAYER:
                 return PlayerTeamManager.Instance.TryGetUnit(unitId, out unit);
@@ -95,7 +97,31 @@ public class GameManager : MonoBehaviour
                 Debug.Log("Not Implemented");
                 //return EnemyTeamManager.Instance.TryGetUnit(unitId, out unit);
                 break;
+            default:
+                Debug.LogError($"TryGetUnit: Unrecognized unit type {unitType}");
+                break;
         }
         return false;
+    }
+    public int GetUnitId(UnitController unit)
+    {
+        if (unit == null)
+        {
+            Debug.LogError("GetUnitId called with a null unit.");
+            return -1;
+        }
+        var playerController = unit as PlayerUnitController;
+        if (playerController != null)
+        {
+            return PlayerTeamManager.Instance.GetUnitId(playerController);
+        }
+        // If you have an EnemyUnitController, you can add similar logic here.
+        // var enemyController = unit.GetComponent<EnemyUnitController>();
+        // if (enemyController != null)
+        // {
+        //     return EnemyTeamManager.Instance.GetUnitId(enemyController);
+        // }
+        Debug.LogError($"GetUnitId: The unit {unit.name} does not have a recognized controller.");
+        return -1;
     }
 }

@@ -62,7 +62,7 @@ namespace GameUtility
 
             GameManager gameManager = GameManager.Instance;
             gameManager.TryGetUnit(
-                m_parameters[m_damageOwnerTypeKey],
+                (UnitType)m_parameters[m_damageOwnerTypeKey],
                 m_parameters[m_damageOwnerIdKey],
                 out GameObject damageOwner);
             return damageOwner;
@@ -83,7 +83,7 @@ namespace GameUtility
 
             GameManager gameManager = GameManager.Instance;
             gameManager.TryGetUnit(
-                m_parameters[m_damageTargetTypeKey],
+                (UnitType)m_parameters[m_damageTargetTypeKey],
                 m_parameters[m_damageTargetIdKey],
                 out GameObject damageTarget);
             return damageTarget;
@@ -106,7 +106,7 @@ namespace GameUtility
         {
             GameManager gameManager = GameManager.Instance;
             gameManager.TryGetUnit(
-                m_parameters[m_healingOwnerTypeKey],
+                (UnitType)m_parameters[m_healingOwnerTypeKey],
                 m_parameters[m_healingOwnerIdKey],
                 out GameObject healingOwner);
             return healingOwner;
@@ -115,7 +115,7 @@ namespace GameUtility
         {
             GameManager gameManager = GameManager.Instance;
             gameManager.TryGetUnit(
-                m_parameters[m_healingTargetTypeKey],
+                (UnitType)m_parameters[m_healingTargetTypeKey],
                 m_parameters[m_healingTargetIdKey],
                 out GameObject healingTarget);
             return healingTarget;
@@ -137,7 +137,7 @@ namespace GameUtility
         {
             GameManager gameManager = GameManager.Instance;
             gameManager.TryGetUnit(
-                m_parameters[m_statusOwnerTypeKey],
+                (UnitType)m_parameters[m_statusOwnerTypeKey],
                 m_parameters[m_statusOwnerIdKey],
                 out GameObject statusOwner);
             return statusOwner;
@@ -146,7 +146,7 @@ namespace GameUtility
         {
             GameManager gameManager = GameManager.Instance;
             gameManager.TryGetUnit(
-                m_parameters[m_statusTargetTypeKey],
+                (UnitType)m_parameters[m_statusTargetTypeKey],
                 m_parameters[m_statusTargetIdKey],
                 out GameObject statusTarget);
             return statusTarget;
@@ -167,7 +167,7 @@ namespace GameUtility
         {
             GameManager gameManager = GameManager.Instance;
             gameManager.TryGetUnit(
-                m_parameters[m_diceOwnerTypeKey],
+                (UnitType)m_parameters[m_diceOwnerTypeKey],
                 m_parameters[m_diceOwnerIdKey],
                 out GameObject diceOwner);
             return diceOwner;

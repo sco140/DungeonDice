@@ -21,10 +21,6 @@ public class PlayerTeamManager : MonoBehaviour
     private int m_blue = 0;
     [SerializeField]
     private int m_yellow = 0;
-    /// <summary>
-    /// TODO: Consider creating a class to control the skill menu and its interactions with the player unit controllers,
-    ///       instead of having the PlayerTeamManager directly manage it.
-    /// </summary>
     [SerializeField]
     GameObject m_UiSkillMenu;
     [SerializeField]
@@ -57,7 +53,7 @@ public class PlayerTeamManager : MonoBehaviour
         return new Tuple<int, int, int>(Instance.m_red, Instance.m_blue, Instance.m_yellow);
     }
     /// @endregion
-    
+
     private void Awake()
     {
         if (Instance && Instance != this)
@@ -68,7 +64,7 @@ public class PlayerTeamManager : MonoBehaviour
 
         Instance = this;
         // Register event handlers for resource updates.
-        EventManager.Register("UpdateResources",
+        EventManager.Register(EventNames.ResourceUIUpdate,
             new GameUtility.EventHandler<Event_ResourceUpdate>(UpdateResources));
     }
 
@@ -123,5 +119,25 @@ public class PlayerTeamManager : MonoBehaviour
     {
         Instance.m_UiSkillMenu.SetActive(true);
 
+    }
+    /// <summary>
+    /// Gets the index of the specified player unit controller in the team.
+    /// </summary>
+    /// <param name="playerController">The player unit controller to locate.</param>
+    /// <returns>
+    /// The zero-based index of the player unit controller,
+    /// or -1 if it is not in the team.
+    /// </returns>
+    public int GetUnitId(PlayerUnitController playerController)
+    {
+        for (int i = 0; i < Instance.m_PlayerUnitController.Length; i++)
+        {
+            if (Instance.m_PlayerUnitController[i] == playerController)
+            {
+                return i;
+            }
+        }
+        Debug.LogError("GetUnitId: The player controller is not in the team.");
+        return -1;
     }
 }

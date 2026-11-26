@@ -1,3 +1,4 @@
+using GameUtility;
 using UnityEngine;
 using UnityEngine.EventSystems;
 
@@ -9,12 +10,10 @@ public class PlayerUnitController : UnitController
 
     override public void OnPointerClick(PointerEventData eventData)
     {
-        var skillMenu = PlayerTeamManager.GetSkillMenu();
-
-        if (skillMenu == null)
-        {
-            return;
-        }
-        PlayerTeamManager.MoveSkillMenu(this);
+        int unitId = GameManager.Instance.GetUnitId(this);
+        
+        EventManager.TriggerEvent(
+            EventNames.UnitClicked, 
+            new UnitClickedEventData { unitType = UnitType.PLAYER, unitId = unitId });
     }
 }

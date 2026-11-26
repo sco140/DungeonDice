@@ -2,6 +2,11 @@
 using UnityEngine;
 using UnityEngine.EventSystems;
 
+public class UnitClickedEventData
+{
+    public UnitType unitType;
+    public int unitId;
+}
 [RequireComponent(typeof(BoxCollider))]
 public class UnitController : MonoBehaviour, IPointerClickHandler
 {

@@ -3,6 +3,10 @@ namespace GameUtility
 {
     public static class EventNames
     {
+        // UI Events
+        public const string ResourceUIUpdate = "ResourceUIUpdate";
+        public const string UnitClicked = "UnitClicked";
+        public const string CancelClicked = "CancelClicked";
         // Gameplay Events
         public const string BeforeDamageApplied = "BeforeDamageApplied";
         public const string AfterDamageApplied = "AfterDamageApplied";
@@ -14,6 +18,8 @@ namespace GameUtility
         public const string AfterUnitAttack = "AfterUnitAttack";
         public const string BeforeUnitDeath = "BeforeUnitDeath";
         public const string AfterUnitDeath = "AfterUnitDeath";
+        public const string BeforeResourceUpdate = "BeforeResourceUpdate";
+        public const string AfterResourceUpdate = "AfterResourceUpdate";
         // Dice Events
         public const string SetUpDice = "SetUpDice";
         public const string LaunchDice = "LaunchDice";

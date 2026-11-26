@@ -3767,6 +3767,7 @@ GameObject:
   - component: {fileID: 1585037043}
   - component: {fileID: 1585037042}
   - component: {fileID: 1585037041}
+  - component: {fileID: 1585037045}
   m_Layer: 5
   m_Name: UI_SkillMenu
   m_TagString: Untagged
@@ -3884,6 +3885,23 @@ Canvas:
   m_SortingLayerID: 0
   m_SortingOrder: 0
   m_TargetDisplay: 0
+--- !u!114 &1585037045
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1585037039}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 89481b1283199d14ca9016556d7ed35f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: '::'
+  m_SkillButton:
+  - {fileID: 1155216200}
+  - {fileID: 1639126784}
+  - {fileID: 1534476916}
+  - {fileID: 218392400}
 --- !u!1 &1610639237
 GameObject:
   m_ObjectHideFlags: 0

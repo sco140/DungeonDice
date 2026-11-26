@@ -22,7 +22,7 @@ public class ResourceManager : MonoBehaviour
 
         Instance = this;
         // Register event handlers for resource updates.
-        EventManager.Register("ResourceUIUpdate", new EventHandler<Event_ResourceUpdate>(UpdateUI));
+        EventManager.Register(EventNames.ResourceUIUpdate, new EventHandler<Event_ResourceUpdate>(UpdateUI));
 
         if (m_redText == null || m_blueText == null || m_yellowText == null)
         {
@@ -38,7 +38,7 @@ public class ResourceManager : MonoBehaviour
 
     private void OnDestroy()
     {
-        EventManager.Unregister<Event_ResourceUpdate>("ResourceUIUpdate", UpdateUI);
+        EventManager.Unregister<Event_ResourceUpdate>(EventNames.ResourceUIUpdate, UpdateUI);
     }
 
     public void UpdateUI(Event_ResourceUpdate eventData)
